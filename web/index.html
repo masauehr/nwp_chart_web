@@ -9,9 +9,17 @@
 <body>
 <header>
   <h1>ECMWF/GFS/AIFS天気図ビューア</h1>
-  <label>モデル
+  <label><span id="modelLabel">モデル</span>
     <select id="modelSel"></select>
   </label>
+  <!-- 2モデル比較: 同じ図種・範囲・予報有効時刻を、2つのモデルで左右に並べて表示する -->
+  <label class="cmpToggle" title="同じ要素を2つのモデルで左右に並べて表示します（初期値が違えば予報有効時刻を合わせます）">
+    <input type="checkbox" id="cmpChk"> 2モデル比較
+  </label>
+  <span id="cmpBox" hidden>
+    <label>右のモデル <select id="model2Sel"></select></label>
+    <button id="btnSwap" title="左右のモデルを入れ替える（予報有効時刻は保つ）">⇄ 入替</button>
+  </span>
   <label>初期値
     <select id="initSel"></select>
   </label>
@@ -25,9 +33,21 @@
 <nav id="chartTabs" role="tablist" aria-label="図種"></nav>
 
 <main>
-  <div id="viewer">
-    <img id="chartImg" alt="天気図">
-    <div id="noData" hidden>この組み合わせの画像はありません</div>
+  <div id="views">
+    <div class="view" id="view1">
+      <div class="cap" id="cap1" hidden></div>
+      <div id="viewer" class="viewbox">
+        <img id="chartImg" alt="天気図">
+        <div id="noData" class="nodata" hidden>この組み合わせの画像はありません</div>
+      </div>
+    </div>
+    <div class="view" id="view2" hidden>
+      <div class="cap" id="cap2"><span id="cap2Text"></span><a id="dl2" download title="この画像を保存">保存</a></div>
+      <div id="viewer2" class="viewbox">
+        <img id="chartImg2" alt="天気図（右）">
+        <div id="noData2" class="nodata" hidden>この組み合わせの画像はありません</div>
+      </div>
+    </div>
   </div>
 
   <div id="controls">
@@ -52,7 +72,7 @@
 <footer>
   <p id="credit" class="credit"></p>
   <section id="legal" aria-label="出典・ライセンス・免責"></section>
-  <p>作図: 本アプリ（元データを加工して描画した図）。ショートカット: ←→ 予報時間、↑↓ 図種、Space 再生</p>
+  <p>作図: 本アプリ（元データを加工して描画した図）。ショートカット: ←→ 予報時間、↑↓ 図種、Space 再生、C 2モデル比較の切替</p>
 </footer>
 <script src="app.js"></script>
 </body>

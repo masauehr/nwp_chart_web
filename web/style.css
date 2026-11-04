@@ -16,10 +16,22 @@ header a { color:var(--accent); }
 #chartTabs { display:flex; flex-wrap:wrap; gap:6px; padding:10px 16px 0; }
 #chartTabs button { border-radius:16px; }
 main { max-width:1000px; margin:0 auto; padding:10px 16px 24px; }
-#viewer { position:relative; background:#fff; border:1px solid var(--line); }
-#chartImg { display:block; width:100%; height:auto; aspect-ratio:950/760; background:#fff; }
-#noData[hidden] { display:none; }
-#noData { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#fff; color:#778; }
+#views { display:grid; grid-template-columns:1fr; gap:10px; }
+.viewbox { position:relative; background:#fff; border:1px solid var(--line); }
+.viewbox img { display:block; width:100%; height:auto; aspect-ratio:950/760; background:#fff; }
+.nodata[hidden] { display:none; }
+.nodata { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:12px; text-align:center; background:#fff; color:#778; }
+/* 2モデル比較: 左右に並べる（狭い画面では縦に積む） */
+body.cmp main { max-width:1800px; }
+body.cmp #views { grid-template-columns:1fr 1fr; }
+@media (max-width:760px) { body.cmp #views { grid-template-columns:1fr; } }
+.cap { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:4px 10px; background:#3b4252; color:#fff; font-size:13px; border-radius:6px 6px 0 0; }
+.cap[hidden] { display:none; }
+.cap a { color:#ffd166; text-decoration:none; font-size:12px; }
+.cap b { color:#ffd166; }
+.cmpToggle { display:inline-flex; align-items:center; gap:4px; cursor:pointer; }
+#cmpBox { display:inline-flex; align-items:center; gap:8px; }
+#cmpBox[hidden] { display:none; }
 #controls { display:flex; align-items:center; gap:8px; margin-top:10px; }
 #ftSlider { flex:1; min-width:80px; }
 #timeInfo { margin-top:6px; font-size:15px; font-variant-numeric:tabular-nums; }
