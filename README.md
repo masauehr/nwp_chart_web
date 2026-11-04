@@ -73,6 +73,22 @@ cd ~/projects/nwp_chart_web
   ```
   （日付は取得済みの初期値 YYYYMMDDHH に変える。FT3h 毎の日本域 0.125° も作られる）
 
+### GSM の自動取得（00/12UTC のみ・ローカル）
+GSM は **00UTC と 12UTC の初期値だけ**を、launchd で自動取得・作図します（06/18UTC は手動）。ECMWF・GFS・AIFS は公開サイト側（GitHub Actions）が更新するので、この自動取得の対象は GSM だけです。
+
+- 設定: [launchd/com.masahiro.nwp_chart_web_gsm.plist](launchd/com.masahiro.nwp_chart_web_gsm.plist)（`~/Library/LaunchAgents/` に置いて登録）。1時間おきに確認し、揃っていれば取得・作図、作成済みなら数秒で終わります。
+- 実行内容: `update_latest.py --models gsm --init-hours 0 12 --keep-days 3 --jobs 4 --dl-jobs 6`
+- **所要時間（実測）**: 初期値1つで約14分（13分42秒）。取得 約590MB（FT72h まで）、PNG 851枚（約130MB）。1日2回で約27分。
+- **保管**: 初期値が **3日より古い PNG と GRIB2 を自動で削除**します（`--keep-days 3`）。3日分（約6初期値）で約4.3GB。削除対象は `--dry-run` を付けると確認できます。
+- ログ: `logs/gsm_auto.log`
+- 手動で 06/18UTC を取る: `python make_charts.py gsm 2026110406`（YYYYMMDDHH、UTC）。
+- 登録・停止:
+  ```bash
+  cp launchd/com.masahiro.nwp_chart_web_gsm.plist ~/Library/LaunchAgents/
+  launchctl load ~/Library/LaunchAgents/com.masahiro.nwp_chart_web_gsm.plist     # 登録（自動取得を開始）
+  launchctl unload ~/Library/LaunchAgents/com.masahiro.nwp_chart_web_gsm.plist   # 停止
+  ```
+
 ### 2回目以降（作成済みの画像を見るだけ）
 手順の 2) と 3) だけです。**表示するだけならダウンロードは発生しません**（作成済みの画像を読むだけ。オフラインでも見られます）。
 
