@@ -32,6 +32,7 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - 975hPa は GFS のみ（ECMWF/AIFSオープンデータに無い）。
 - **AIFS**: 相対湿度 `r` が無く比湿 `q` から計算（`_rh_from_q`）。降水 `tp` の単位は kg/m²（IFSは m）→ `TP_TO_MM`。6時間刻みのみ。図種の `levels` で無い面は自動スキップ。
 - 湿数 `T−Td` は飽和付近で `-1e-6` 程度の負値になり、`contourf` のハッチが全面塗り/逆転する。`_chart_tdep` で `np.maximum(…, 0)` して levels を `[-0.1, 1.5, 3]` にしている（外さない）。
+- **cartopy 0.26 の `contourf(transform=PC)` は帯の領域が地図全面に広がる**（CIは依存が最新版で0.26、手元met_env_310は0.25のため手元では再現しない）。等値線・ハッチ・塗りは `ax.contour(*V.xy(ax), …)` で自前投影した座標で描く（`transform=PC` を付けない）。外さない。CIと同じ環境の再現は `uv venv --python 3.11` ＋ `uv pip install -r requirements.txt`。
 - モデル名表示は「ECMWF」（IFSは付けない。AIFSと紛らわしい）。画面側でラベルを分割して使わない（全文を使う）。
 - numpy のスレッド競合で並列描画が桁違いに遅くなる → `nwp_charts.py` 冒頭でスレッド数1に固定済み（外さない）。
 - 通常版（`web/app.js`）にも2モデル比較モードがある（左が基準、右は `resolve()` で有効時刻を合わせる。URLに `cmp=1&model2=`）。

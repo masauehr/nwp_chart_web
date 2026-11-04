@@ -99,6 +99,17 @@ class View:
         self.dx = float(self.lons[1] - self.lons[0])  # 元格子の間隔[度]（0.5 or 0.125）
         self.rmask = self.fmask = None  # 地面下マスク（set_level で設定）
 
+    def xy(self, ax):
+        """等値線・ハッチ用に、細かい格子の座標を地図の投影座標へ自前で変換して返す（結果は投影ごとに保持）。
+
+        cartopy 0.26 の contourf(transform=PC) は帯の領域が地図全面に広がって描かれる不具合があるため、
+        transform を使わず投影後の座標で描く（0.25 でも同じ結果）。"""
+        key = id(ax.projection)
+        if getattr(self, "_xy_key", None) != key:
+            p = ax.projection.transform_points(PC, self.flon, self.flat)
+            self._xy, self._xy_key = (p[..., 0], p[..., 1]), key
+        return self._xy
+
     def set_level(self, F, level):
         """等圧面の図で、地表気圧が level より低い（=地面の下）領域をマスクする。None で解除。"""
         if level is None:
@@ -185,13 +196,13 @@ def lines(ax, V, a, levels, major=None, color="k", lw=0.8, lw_major=1.8, ls="-",
     z = V.fine(a)
     if lv.min() > np.nanmax(z) or lv.max() < np.nanmin(z):
         return
-    cs = ax.contour(V.flon, V.flat, z, levels=lv, colors=color, linewidths=lw,
-                    linestyles=ls, transform=PC, zorder=3)
+    cs = ax.contour(*V.xy(ax), z, levels=lv, colors=color, linewidths=lw,
+                    linestyles=ls, zorder=3)
     if major is not None and len(major):
         m = [x for x in major if np.nanmin(z) <= x <= np.nanmax(z)]
         if m:
-            ax.contour(V.flon, V.flat, z, levels=m, colors=color, linewidths=lw_major,
-                       linestyles=ls, transform=PC, zorder=3)
+            ax.contour(*V.xy(ax), z, levels=m, colors=color, linewidths=lw_major,
+                       linestyles=ls, zorder=3)
     ll = label_levels if label_levels is not None else major
     if ll:
         ll = [x for x in ll if np.nanmin(z) <= x <= np.nanmax(z)]
@@ -206,13 +217,12 @@ def hatch(ax, V, a, levels, hatches, color, zorder=2):
     """ハッチ（斜線・点）塗り。levels は境界、hatches は各区間のパターン。"""
     z = V.fine(a)
     with matplotlib.rc_context({"hatch.color": color, "hatch.linewidth": 0.8}):
-        ax.contourf(V.flon, V.flat, z, levels=levels, colors="none", hatches=hatches,
-                    transform=PC, zorder=zorder, extend="neither")
+        ax.contourf(*V.xy(ax), z, levels=levels, colors="none", hatches=hatches, zorder=zorder, extend="neither")
 
 
 def fill(ax, V, a, levels, colors, zorder=1, extend="neither"):
     z = V.fine(a)
-    ax.contourf(V.flon, V.flat, z, levels=levels, colors=colors, transform=PC,
+    ax.contourf(*V.xy(ax), z, levels=levels, colors=colors,
                 zorder=zorder, extend=extend)
 
 
@@ -310,18 +320,17 @@ def chart_tenki(ax, V, F, ctx):
     V.set_level(F, None)
     # 全雲量: 晴(白) / 薄曇(淡黄) / 曇(灰)。降水があれば緑
     fill(ax, V, F["tcc"], [-1, 30, 70, 101], ["#ffffff", "#fff3b0", "#d9d9d9"])
-    ax.contour(V.flon, V.flat, V.fine(F["tcc"]), levels=[30, 70], colors="#e0a030",
-               linewidths=0.6, transform=PC, zorder=2)
+    ax.contour(*V.xy(ax), V.fine(F["tcc"]), levels=[30, 70], colors="#e0a030",
+               linewidths=0.6, zorder=2)
     if F.get("rr") is not None:
         thr = 0.5 if F["rr_h"] == 1 else 0.2   # 1時間降水0.5mm / 6時間平均0.2mm/h 以上を雨とみなす
-        ax.contourf(V.flon, V.flat, V.fine(F["rr"]), levels=[thr, 1e4], colors=["#22cc22"],
-                    transform=PC, zorder=2)
+        ax.contourf(*V.xy(ax), V.fine(F["rr"]), levels=[thr, 1e4], colors=["#22cc22"], zorder=2)
     RD = "#e03030"
     if 850 in F["p"] and 700 in F["p"]:
         s = ssi(F, 850, 700)
         hatch(ax, V, s, [-100, 0], ["oo"], RD)
-        ax.contour(V.flon, V.flat, V.fine(s), levels=[-3, 0], colors=RD, linewidths=0.7,
-                   linestyles="--", transform=PC, zorder=3)
+        ax.contour(*V.xy(ax), V.fine(s), levels=[-3, 0], colors=RD, linewidths=0.7,
+                   linestyles="--", zorder=3)
     lines(ax, V, F["msl"], np.arange(900, 1060, 4), major=list(range(900, 1060, 20)), fmt="%d", fs=8)
     extrema(ax, V, F["msl"], "H", 13, color="#1030c0")
     extrema(ax, V, F["msl"], "L", 13, color="#c01010")
@@ -338,11 +347,10 @@ def chart_z500(ax, V, F, ctx):
     zeta = vorticity(d["u"], d["v"], F["lats"], F["lons"])
     ctx["title"] = "Z500,Vor500"
     vf = V.fine(zeta)
-    ax.contour(V.flon, V.flat, vf, levels=np.arange(-200, 900, 40), colors="#e8890c",
-               linewidths=0.8, transform=PC, zorder=2)
+    ax.contour(*V.xy(ax), vf, levels=np.arange(-200, 900, 40), colors="#e8890c",
+               linewidths=0.8, zorder=2)
     with matplotlib.rc_context({"hatch.color": "#e8890c", "hatch.linewidth": 0.9}):
-        ax.contourf(V.flon, V.flat, vf, levels=[40, 1e4], colors="none", hatches=["////"],
-                    transform=PC, zorder=2)
+        ax.contourf(*V.xy(ax), vf, levels=[40, 1e4], colors="none", hatches=["////"], zorder=2)
     lines(ax, V, d["gh"], np.arange(4800, 6200, 60), major=list(range(4800, 6200, 300)),
           fmt="%d", fs=8)
     extrema(ax, V, d["gh"], "L", 11, color="#c01010")
@@ -375,8 +383,8 @@ def _chart_tdep(ax, V, F, ctx, lv):
     BL = "#3a6fd8"
     hatch(ax, V, ttd, [-0.1, 1.5, 3], ["\\\\\\\\\\\\", "\\\\\\\\"], BL)
     hatch(ax, V, ttd, [3, 6], ["////"], "#8a8a8a")
-    ax.contour(V.flon, V.flat, V.fine(ttd), levels=[3], colors=BL, linewidths=0.8,
-               linestyles="--", transform=PC, zorder=3)
+    ax.contour(*V.xy(ax), V.fine(ttd), levels=[3], colors=BL, linewidths=0.8,
+               linestyles="--", zorder=3)
     lines(ax, V, d["t"], np.arange(-60, 45, 3), major=None, color="red", lw=1.1,
           ls="--", label_levels=list(range(-60, 45, 3)), fmt="%d", fs=8)
     barbs(ax, V, d["u"], d["v"], "red")
@@ -408,8 +416,8 @@ def chart_t700(ax, V, F, ctx):
     RD = "#e03030"
     hatch(ax, V, d["w"], [-1000, -70, -30, -10], ["OO", "oo", ".."], RD)
     ttd = d["t"] - dewpoint(d["t"], d["r"])
-    ax.contour(V.flon, V.flat, V.fine(ttd), levels=[3], colors="#3a6fd8", linewidths=0.8,
-               linestyles="--", transform=PC, zorder=3)
+    ax.contour(*V.xy(ax), V.fine(ttd), levels=[3], colors="#3a6fd8", linewidths=0.8,
+               linestyles="--", zorder=3)
     lines(ax, V, d["t"], np.arange(-40, 30, 3), color="red", lw=1.1,
           label_levels=list(range(-30, 30, 3)), fmt="%d", fs=8)
     barbs(ax, V, d["u"], d["v"], "red")
@@ -424,8 +432,8 @@ def chart_ept850(ax, V, F, ctx):
     s = ssi(F)
     RD = "#e03030"
     hatch(ax, V, s, [-100, -3, 0], ["OO", "oo"], RD)
-    ax.contour(V.flon, V.flat, V.fine(s), levels=[-9, -6, -3, 0, 3, 6], colors=RD, linewidths=0.7,
-               linestyles="--", transform=PC, zorder=3)
+    ax.contour(*V.xy(ax), V.fine(s), levels=[-9, -6, -3, 0, 3, 6], colors=RD, linewidths=0.7,
+               linestyles="--", zorder=3)
     e = ept(F)
     lines(ax, V, e, np.arange(240, 390, 3), color="#9b30d9", lw=1.0, lw_major=2.0,
           major=list(range(240, 390, 9)), label_levels=list(range(240, 390, 9)), fmt="%d", fs=8)
