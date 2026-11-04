@@ -1,4 +1,4 @@
-# nwp_chart_web — ECMWF / GFS / AIFS 天気図ビューア マニュアル
+# nwp_chart_web — ECMWF / GFS / AIFS / GSM 天気図ビューア マニュアル
 
 ECMWF（IFS オープンデータ）・ECMWF AIFS（AI予報モデル）・NOAA GFS（いずれも 0.25°）から、気象庁ビューア風の天気図PNGを作り、ブラウザで閲覧するアプリ。`gsm_chart_web`（GSM版）と同じ機能を、2モデル・公開サーバー対応で作ったもの。
 作成日: 2026-11-04（v0.1）。公開方式の検討と手順は PUBLISH.md、設計は DESIGN.md。
@@ -6,7 +6,7 @@ ECMWF（IFS オープンデータ）・ECMWF AIFS（AI予報モデル）・NOAA 
 ## できること
 
 - 配信元から**必要な変数だけ**を部分取得（ECMWF 約19MB・GFS 約38MB/ステップ）して作図。GRIB2は作図後に削除し、残るのはPNGだけ。
-- 3モデル（ECMWF IFS / ECMWF AIFS / NOAA GFS）× 図種 10 × 地域 3 × 予報時間（既定 FT0〜72h、6時間毎）。AIFS は6時間刻みのみ。
+- 4モデル（ECMWF IFS / ECMWF AIFS / NOAA GFS / **JMA GSM**）× 図種 10 × 地域 × 予報時間（既定 FT0〜72h）。IFS/AIFS/GFS は6時間毎・3地域。**GSM はローカル専用**で、全球0.5°（6時間毎・3地域）に加えて日本域0.125°（3時間毎・`japan3`/`okinawa3`）も作る。
 - 通常版（1枚ずつ）と画用紙版（複数を並べる）。**モデル切替**と、**ECMWF と GFS の同時比較**（画用紙版の「モデル違い」）。
 - 公開用の静的サイトを `build_site.py` で組み立て可能（GitHub Pages 等）。
 
@@ -18,10 +18,10 @@ ECMWF（IFS オープンデータ）・ECMWF AIFS（AI予報モデル）・NOAA 
 | `t500` | 500hPa 気温・湿数・風 | |
 | `jet300` | 300hPa 高度・気温・等風速・風 | |
 | `t850` / `t700` / `t925` | 気温・湿数（700は上昇流）・風 | |
-| `t975` | 975hPa 気温・湿数・風 | **GFSのみ**（ECMWF/AIFSのオープンデータに無い） |
+| `t975` | 975hPa 気温・湿数・風 | **GFSとGSM日本域のみ**（ECMWF/AIFSのオープンデータ、GSM全球に無い） |
 | `ept850` | 850hPa 相当温位・SSI(500-850)・風 | |
 
-地域: `japan` 日本周辺 / `okinawa` 沖縄周辺 / `asia` 東アジア広域。
+地域: `japan` 日本周辺 / `okinawa` 沖縄周辺 / `asia` 東アジア広域（全モデル共通）。GSM だけ `japan3` 日本域（0.125°・3時間毎）/ `okinawa3` 南西域（0.125°・3時間毎）。
 
 ## 使い方（ローカル）
 
@@ -35,6 +35,8 @@ python update_latest.py --models gfs --jobs 3
 python make_charts.py ecmwf 2026110312 --max-ft 24     # 初期値・範囲を指定して1モデルだけ
 python make_charts.py gfs --latest --charts surf z500 --regions japan
 python make_charts.py aifs --latest                   # AI予報モデル
+python make_charts.py gsm --latest                    # 気象庁GSM（ローカル専用。RISHから取得）
+python make_charts.py gsm 2026110312 --data-dir ../gsm_chart_web/data/gsm   # 取得済みのGSMデータを再利用
 python server.py                            # → http://127.0.0.1:8790/  （画用紙版 /board/）
 python build_site.py                        # 公開用の静的サイト → _site/
 python make_charts.py ?                     # ヘルプ
@@ -55,6 +57,7 @@ python make_charts.py ?                     # ヘルプ
 
 | パス | 役割 |
 |---|---|
+| `gsm_source.py` | **GSM（ローカル専用）** の取得（京大RISH、ファイル全体）と読み込み。Rgl全球0.5°・Rjp日本域0.125°。`gsm_chart_web` のコピーを調整 |
 | `nwp_data.py` | ECMWF/GFS/AIFS の最新判定・索引からの部分取得・読み込み（`MODELS` にモデル定義。AIFSは比湿から相対湿度を計算、降水の単位も吸収） |
 | `nwp_charts.py` | 描画（`gsm_charts.py` のコピーを調整。PNGは256色に減色） |
 | `make_charts.py` | 1モデル・1初期値の 取得と作図を**重ねて**実行（1ステップ取れたらすぐ作図。全取得完了を待たない）→ 一時データ削除 → manifest |
@@ -87,3 +90,15 @@ GitHub Pages の配信元は **gh-pages ブランチ**（画像と画面ファ�
 - 各ジョブは、公開済みの画像を取り込んで「作成済みか」を判定し、新しい初期値だけを作る。公開するのは**各モデル最新2初期値**。
 - 他のモデルの画像には触れない。manifest は公開側を走査して再生成し、中身が同じなら更新しない（無駄なコミットを避ける）。
 - ローカルで公開の動作確認をするときは `git init --bare` した空リポジトリを `--remote` に指定する（本番には触れない）。
+
+## GSM（ローカル専用モデル）
+
+気象庁 全球モデル(GSM)（京大RISH配信）を4つ目のモデルとして扱う。**公開サイトには載せない**。
+
+- **取得**: ECMWF/GFS/AIFS と違い、RISH からは**ファイル全体**を取る（索引による部分取得が無い）。Rgl（全球）は1ステップ約33MB、Rjp（日本域）は24時間分で約58MB。**GRIB2は `data/gsm/` に残す**（Rjpは複数のFTで共有するため削除しない。FT72hまでで初期値あたり約600MB）。取得済みの `gsm_chart_web/data/gsm` は `--data-dir` で再利用できる（再ダウンロード不要）。
+- **間隔**: 既定は3時間（日本域0.125°が3時間毎）。全球（`japan`/`okinawa`/`asia`）は6時間毎のFTだけ、日本域（`japan3`/`okinawa3`）は3時間毎。
+- **比較**: 他モデルと同じ画面で、初期値が違っても予報有効時刻を合わせて比較できる（画用紙版の「モデル違い」）。
+- **公開しない仕組み（4重）**: ①`nwp_data.MODELS` の `local_only`。②`publish.py` は GSM の指定を拒否（`--model gsm` も `--pull` も）。③公開用 manifest（`public_only`）と `build_site.py` が GSM と GSM専用地域を除外。④CIの対象モデル一覧に入れていない。
+- ローカルの「最新を取得」ボタン（`update_latest.py`）は GSM も含めて4モデルを並行更新する。
+- 出典表示: 気象庁GSM（RISH配信）を加工したもので気象庁の公式な図ではない旨、ローカル専用でありデータの利用条件は配信元（RISH・気象庁）に従う旨を画面に出す。再配布・公開は配信元の条件を各自で確認すること。
+- `gsm_chart_web`（旧版）はそのまま残してある（後継はこの `nwp_chart_web`）。

@@ -45,7 +45,7 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     p.add_argument("--models", nargs="+", default=list(nwp_data.MODELS), choices=list(nwp_data.MODELS))
     p.add_argument("--max-ft", type=int, default=72)
-    p.add_argument("--interval", type=int, default=6)
+    p.add_argument("--interval", type=int, default=None, help="FT間隔[h]（既定: モデルごと。GSMは3、他は6）")
     p.add_argument("--jobs", type=int, default=2, help="作図の並列数")
     p.add_argument("--dl-jobs", type=int, default=4, help="ダウンロードの並列数")
     p.add_argument("--days-back", type=int, default=3)
@@ -71,7 +71,7 @@ def acquire_lock():
     return True
 
 
-def is_built(model, init_s, max_ft, interval):
+def is_built(model, init_s, max_ft, interval):  # interval はモデルごとの値を渡す
     """その初期値の全FTが、いずれかの地域に作成済みか。"""
     d = OUTPUT_DIR / model / init_s
     if not d.is_dir():
@@ -119,28 +119,29 @@ def main():
     try:
         todo = []  # (model, init_s)
         for model in a.models:
-            init = nwp_data.find_latest_complete(model, a.max_ft, a.interval, a.days_back)
+            iv = a.interval or nwp_data.default_interval(model)  # GSMは3時間毎（日本域0.125°）、他は6
+            init = nwp_data.find_latest_complete(model, a.max_ft, iv, a.days_back)
             if init is None:
                 log(f"{model}: FT{a.max_ft}hまで揃った初期値が見つかりません")
                 continue
             init_s = f"{init:%Y%m%d%H}"
-            if not a.force and is_built(model, init_s, a.max_ft, a.interval):
+            if not a.force and is_built(model, init_s, a.max_ft, iv):
                 log(f"{model}: {init_s} は作成済み")
                 continue
             log(f"{model}: {init_s} を取得・作図します{' [dry-run]' if a.dry_run else ''}")
-            todo.append((model, init_s))
+            todo.append((model, init_s, iv))
         if todo and not a.dry_run:
-            def cmd_for(model, init_s):
+            def cmd_for(model, init_s, iv):
                 return [sys.executable, "-u", str(ROOT / "make_charts.py"), model, init_s,
-                        "--max-ft", str(a.max_ft), "--interval", str(a.interval), "--jobs", str(a.jobs),
+                        "--max-ft", str(a.max_ft), "--interval", str(iv), "--jobs", str(a.jobs),
                         "--dl-jobs", str(a.dl_jobs), "--data-dir", a.data_dir]
             if a.sequential:
                 procs = []
-                for model, init_s in todo:
-                    r = subprocess.run(cmd_for(model, init_s), cwd=ROOT)
+                for model, init_s, iv in todo:
+                    r = subprocess.run(cmd_for(model, init_s, iv), cwd=ROOT)
                     procs.append((model, r.returncode))
             else:
-                running = [(m, subprocess.Popen(cmd_for(m, i), cwd=ROOT)) for m, i in todo]  # モデルごとに別プロセスで並行
+                running = [(m, subprocess.Popen(cmd_for(m, i, v), cwd=ROOT)) for m, i, v in todo]  # モデルごとに別プロセスで並行
                 procs = [(m, pr.wait()) for m, pr in running]
             for model, rc in procs:
                 log(f"{model}: make_charts 終了コード {rc}")

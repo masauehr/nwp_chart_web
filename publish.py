@@ -60,6 +60,14 @@ def parse_args():
         p.print_help()
         sys.exit(0)
     a = p.parse_args()
+    if a.model:
+        sys.path.insert(0, str(ROOT))
+        import nwp_data  # 軽い依存のみ（requests）
+        if a.model not in nwp_data.MODELS:
+            p.error(f"不明なモデル: {a.model}")
+        if nwp_data.MODELS[a.model].get("local_only"):
+            # ローカル専用モデル（GSM）は公開しない。誤って指定しても拒否する（二重の防止）
+            p.error(f"{a.model} はローカル専用モデルのため、公開ブランチへは反映できません")
     if a.pull and not a.model:
         p.error("--pull には --model が必要です")
     if not a.pull and not a.web_only and not a.model:
@@ -153,7 +161,7 @@ def regenerate_manifest(wt: Path):
     old_text = mf.read_text(encoding="utf-8") if mf.exists() else None
     sys.path.insert(0, str(ROOT))
     import make_charts
-    make_charts.write_manifest(wt / "output")
+    make_charts.write_manifest(wt / "output", public_only=True)  # ローカル専用モデル（GSM）は載せない
     if old_text is not None:
         try:
             old, new = json.loads(old_text), json.loads(mf.read_text(encoding="utf-8"))

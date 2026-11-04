@@ -1,8 +1,8 @@
-# nwp_chart_web — ECMWF / GFS / AIFS 天気図ビューア（公開サーバー対応）
+# nwp_chart_web — ECMWF / GFS / AIFS / GSM 天気図ビューア（公開サーバー対応）
 
 詳しくは [nwp-chart-web.md](nwp-chart-web.md) を参照。公開サーバーの方式・手順は [PUBLISH.md](PUBLISH.md)、設計・調査結果は [DESIGN.md](DESIGN.md)。
 
-ECMWF（IFS）・ECMWF AIFS（AI予報モデル）・NOAA GFS（いずれも 0.25°）から、気象庁ビューア風の天気図PNGを作り、ブラウザで閲覧する。
+ECMWF（IFS）・ECMWF AIFS（AI予報モデル）・NOAA GFS（いずれも 0.25°）、およびローカル専用で気象庁GSM から、気象庁ビューア風の天気図PNGを作り、ブラウザで閲覧する。
 `gsm_chart_web`（GSM版）と同じ機能を、3モデルで・公開サーバーに置ける形で作ったもの。
 
 ## クイックスタート（ローカル）
@@ -26,15 +26,18 @@ python server.py                 # → http://127.0.0.1:8790/  （画用紙版�
 
 出典・ライセンス・免責・改変の表示は画面に常時出している。
 
+**GSM はローカル専用**です。ローカルで `python update_latest.py` や画面の「最新を取得」を使うと、GSM も含めて4モデルを比較できます（公開サイトには GSM を載せません。詳細は [nwp-chart-web.md](nwp-chart-web.md)）。
+
 **モデル比較**: 画用紙版の「モデル違い」で ECMWF（IFS）・AIFS・GFS を並べられる（IFS と AI モデルの差が見どころ）。最新の初期値がモデルで違っても、**予報有効時刻を合わせて**表示する（見出しに `GFS [11/04 00Z +6h]` のように初期値と予報時間が出る）。
 
 ## 図種・地域
 
 - 図種: 地上（降水）/ 地上（天気・SSI）/ 500hPa 高度・渦度 / 500hPa 気温・湿数 / 300 / 850 / 700 / 925 / 975hPa（GFSのみ）/ 850hPa EPT・SSI
-- モデル: ECMWF IFS / ECMWF AIFS（AI。6時間刻み）/ NOAA GFS
+- モデル: ECMWF IFS / ECMWF AIFS（AI。6時間刻み）/ NOAA GFS（以上は公開サイトにも載る）、**JMA GSM（ローカル専用・公開しない。日本域0.125°・3時間毎も）**
 - 地域: 日本周辺 / 沖縄周辺 / 東アジア広域
 
 ## データ出典
 
 - ECMWF（IFS・AIFS）: ECMWF Open Data（CC BY 4.0）。Contains ECMWF open data.
 - NOAA/NCEP GFS（NOMADS / AWS Open Data）。
+- 気象庁 GSM（京都大学生存圏研究所 RISH 配信）— ローカル専用。データは含めず、利用条件は配信元で確認すること。

@@ -5,6 +5,7 @@
 gsm_chart_web の gsm_charts.py をコピーして多モデル用に調整したもの（共通部品化しない方針）。
 図種: surf / tenki / z500 / jet300 / t500 / t850 / t700 / t925 / t975 / ept850（975hPaはGFSのみ）
 地域: japan（日本周辺・ランベルト） / okinawa（沖縄周辺・正距円筒） / asia（東アジア広域）
+  GSMだけ japan3 / okinawa3（日本域0.125°・3時間毎。src="rjp"）
 """
 import os
 import sys
@@ -44,7 +45,17 @@ REGIONS = {
                     bbox=(105, 152, 8, 46), barb_n=16, coast="10m", zoom=3),
     "asia": dict(label="東アジア広域", kind="lcc", center=(115.0, 33.0), width_km=8600,
                  bbox=(55, 180, -8, 80), barb_n=24, coast="50m", zoom=1),
+    # GSM 日本域 0.125°（Rjp, 3時間毎）。データ範囲は 120-150E, 20-50N。**GSM（ローカル専用）だけ**が持つ地域
+    "japan3": dict(label="日本域（0.125°・3時間毎）", kind="lcc", center=(135.0, 36.0), width_km=2700,
+                   bbox=(120, 150, 20, 50), barb_n=20, coast="10m", zoom=1, src="rjp", models=("gsm",)),
+    "okinawa3": dict(label="南西域（0.125°・3時間毎）", kind="pc", center=(133.0, 30.0), width_deg=26.0,
+                     bbox=(120, 150, 20, 50), barb_n=16, coast="10m", zoom=1, src="rjp", models=("gsm",)),
 }
+
+
+def regions_for(model):
+    """そのモデルで作れる地域（地域の models 指定があればそのモデルだけ。無ければ全モデル共通）。"""
+    return [k for k, v in REGIONS.items() if "models" not in v or model in v["models"]]
 
 
 def make_projection(region):

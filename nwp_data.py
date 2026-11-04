@@ -38,7 +38,20 @@ MODELS = {
     "ecmwf": dict(label="ECMWF IFS"),
     "gfs": dict(label="NOAA GFS"),
     "aifs": dict(label="ECMWF AIFS"),
+    # 気象庁GSM（京大RISH配信）。**ローカル専用**: 公開サイト（gh-pages）には載せない。publish.py と CI の対象から除外する
+    "gsm": dict(label="JMA GSM", local_only=True),
 }
+
+
+def public_models():
+    """公開サイトに載せてよいモデル（local_only でないもの）。"""
+    return [m for m, v in MODELS.items() if not v.get("local_only")]
+
+
+def default_interval(model: str) -> int:
+    """モデルごとの既定のFT間隔[h]。GSMは日本域0.125°が3時間毎のため3、他は6。"""
+    return 3 if model == "gsm" else 6
+
 # ECMWFのオープンデータ配信（索引は .index、積算降水 tp は前ステップとの差分、雲量は0-1）の形式を持つモデル → 配信元のパスのモデル名
 ECMWF_LIKE = {"ecmwf": "ifs", "aifs": "aifs-single"}
 # 積算降水 tp を mm にする係数。IFSは単位が m、AIFSは kg/m²(=mm)（実データの units 属性で確認。2026-11-04）
@@ -76,6 +89,17 @@ def legal_text(model: str, year: int, accessed: str) -> dict:
             "availability, or for any loss or damage arising from their use. The data are provided on an \"as is\" basis.",
         ]
         return dict(short=short, notice=notice, license_url=CC_BY_URL)
+    if model == "gsm":
+        short = ("気象庁 全球モデル(GSM) GPV（京都大学生存圏研究所 RISH 配信）を加工して作図。気象庁の公式な図ではありません。"
+                 "本アプリはローカルで動かす調査用で、この図は公開サイトには含まれません。データの利用条件は配信元（RISH・気象庁）に従ってください。")
+        notice = [
+            "データ: 気象庁 全球モデル(GSM) GPV。京都大学生存圏研究所 (RISH) のアーカイブ "
+            "http://database.rish.kyoto-u.ac.jp/arch/jmadata/ から取得。",
+            "改変: 元データの一部の変数を使い、本アプリが加工して図にしたもの。気象庁の公式な図ではありません。",
+            "このモデルの図はローカル（調査用）専用で、公開サイトには載せません。再配布・公開する場合は、配信元（RISH・気象庁）の利用条件を確認してください。",
+            "免責: 図の内容・利用による損害について作成者は責任を負いません。防災・安全に関わる判断には気象庁の公式情報を使ってください。",
+        ]
+        return dict(short=short, notice=notice, license_url="http://database.rish.kyoto-u.ac.jp/arch/jmadata/")
     short = (f"NOAA/NCEP Global Forecast System (GFS), accessed {accessed} from registry.opendata.aws/noaa-gfs-bdp-pds. "
              "Modified: the data were processed into charts and are not original NOAA data. "
              "Not endorsed by or affiliated with NOAA/NWS. Provided as is; use at your own risk.")
@@ -155,7 +179,11 @@ def find_latest_complete(model: str, max_ft: int, interval: int, days_back: int 
     """必要な全予報時間が揃っている最新の初期値を返す（公開途中の初期値は避ける）。無ければ None。
 
     ステップは順に公開されるため、最後の予報時間と最初の予報時間の存在確認で代表させる。
+    GSM（RISH）は Rgl・Rjp の全ファイルの存在を一覧から確認する（gsm_source）。
     """
+    if model == "gsm":
+        import gsm_source
+        return gsm_source.find_latest_complete(max_ft, interval, days_back)
     for init in candidate_inits(days_back):
         if max_ft > max_step(model, init):
             continue

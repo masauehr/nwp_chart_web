@@ -29,8 +29,22 @@ def main():
         sys.exit(1)
     # 既存のコピー先は上書き（ディレクトリごとの削除はしない。古い画像は残るので、CIのように空の状態から使う）
     shutil.copytree(ROOT / "web", out, dirs_exist_ok=True)
-    shutil.copytree(ROOT / "output", out / "output", dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns(".gitkeep", ".update.lock", "*.part"))
+    # ローカル専用モデル（GSM）の画像は公開用に含めない
+    sys.path.insert(0, str(ROOT))
+    import nwp_data
+    local_only = {m for m, v in nwp_data.MODELS.items() if v.get("local_only")}
+    base_ignore = shutil.ignore_patterns(".gitkeep", ".update.lock", "*.part")
+
+    def ignore(d, names):
+        skip = set(base_ignore(d, names))
+        if Path(d).resolve() == (ROOT / "output").resolve():
+            skip |= {n for n in names if n in local_only}
+        return skip
+
+    shutil.copytree(ROOT / "output", out / "output", dirs_exist_ok=True, ignore=ignore)
+    # manifest も公開用に作り直す（GSMを載せない）
+    import make_charts
+    make_charts.write_manifest(out / "output", public_only=True)
     (out / ".nojekyll").write_text("")  # GitHub Pages でJekyll処理を無効化
     n = sum(1 for _ in (out / "output").rglob("*.png"))
     size = sum(f.stat().st_size for f in (out / "output").rglob("*") if f.is_file()) / 1e6

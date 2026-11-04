@@ -1,7 +1,7 @@
 # CLAUDE.md — nwp_chart_web
 
 ## 概要
-ECMWF（IFS・AIFS）オープンデータと NOAA GFS（0.25°）から気象庁ビューア風の天気図PNGを作り、ブラウザ/公開サイトで閲覧する。GSM版 `gsm_chart_web` の多モデル・公開対応版。詳しくは [nwp-chart-web.md](nwp-chart-web.md)、方式は [DESIGN.md](DESIGN.md)、公開は [PUBLISH.md](PUBLISH.md)。
+ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁GSM（ローカル専用）**から気象庁ビューア風の天気図PNGを作り、ブラウザ/公開サイトで閲覧する。GSM版 `gsm_chart_web` の多モデル・公開対応版。詳しくは [nwp-chart-web.md](nwp-chart-web.md)、方式は [DESIGN.md](DESIGN.md)、公開は [PUBLISH.md](PUBLISH.md)。
 
 ## 実行環境
 - Python: `/opt/anaconda3/envs/met_env_310/bin/python`（pygrib/cartopy/metpy/scipy/requests/pillow）。`python -I` は使わない。
@@ -12,6 +12,11 @@ ECMWF（IFS・AIFS）オープンデータと NOAA GFS（0.25°）から気象�
 - **gsm_chart_web と共通部品化しない**（`nwp_charts.py` は `gsm_charts.py` のコピーを調整したもの）。
 - 図種は `nwp_charts.py` の `CHARTS`、地域は `REGIONS`。モデルは `nwp_data.py` の `MODELS`。追加したら README・マニュアル・pc_docs も更新。
 - `data/`（取得GRIB2の一時置き場）、`output/`、`_site/` はgit除外。
+
+## GSM（ローカル専用モデル）
+- **GSM の画像・データは公開しない**。`nwp_data.MODELS["gsm"]` の `local_only` が基準。`publish.py`（`--model gsm` も `--pull` も拒否）、公開用manifest（`write_manifest(public_only=True)`）、`build_site.py`、CIの対象一覧で除外している。**これらを外さない**。新しいローカル専用モデルを足すなら `local_only` を付ける。
+- GSMはRISHからファイル全体を取得し、`data/gsm/` に**残す**（削除しない。取得済みの `gsm_chart_web/data/gsm` は `--data-dir` で再利用）。既定のFT間隔は3（日本域0.125°が3時間毎）。地域 `japan3`/`okinawa3` はGSM専用（`REGIONS` の `models`/`src`）。
+- `gsm_source.py` は `gsm_chart_web/gsm_data.py` のコピー（共通部品化しない）。
 
 ## 公開の仕組み（gh-pages ブランチ方式）
 - 配信元は gh-pages ブランチ。`publish.py` が必要な部分だけ入れ替えて単一の孤立コミットで push する（`--web-only` は画像に触れない／`--model M` はそのモデルだけ）。
