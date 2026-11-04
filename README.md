@@ -5,14 +5,64 @@
 ECMWF（IFS）・ECMWF AIFS（AI予報モデル）・NOAA GFS（いずれも 0.25°）、およびローカル専用で気象庁GSM から、気象庁ビューア風の天気図PNGを作り、ブラウザで閲覧する。
 `gsm_chart_web`（GSM版）と同じ機能を、3モデルで・公開サーバーに置ける形で作ったもの。
 
-## クイックスタート（ローカル）
+## ローカルでの起動方法
 
+### 前提
+- Python は conda 環境 `met_env_310`（pygrib・cartopy・metpy・scipy・requests・pillow が入っている環境）を使います。
+- **`python3` と打つと別の環境（`~/projects/.venv`）になることがあり、その場合は `ModuleNotFoundError` になります。** 下の例のように `/opt/anaconda3/envs/met_env_310/bin/python` を直接指定するのが確実です（`conda activate met_env_310` した後の `python` でも同じです）。
+
+### 手順（初回）
 ```bash
 cd ~/projects/nwp_chart_web
-conda activate met_env_310
-python update_latest.py          # 各モデルの最新の揃った初期値を取得・作図（FT0〜72h、6時間毎）
-python server.py                 # → http://127.0.0.1:8790/  （画用紙版は /board/）
+
+# 1) 天気図を作る（初回だけ必要）。ECMWF・GFS・AIFS・GSM の最新の揃った初期値を取得・作図（4モデルを並行）
+/opt/anaconda3/envs/met_env_310/bin/python update_latest.py
+
+# 2) サーバーを起動する（このターミナルは起動したままにする。止めるときは Ctrl+C）
+/opt/anaconda3/envs/met_env_310/bin/python server.py
+
+# 3) ブラウザで開く
+#    通常版   : http://127.0.0.1:8790/
+#    画用紙版（並べて比較）: http://127.0.0.1:8790/board/
 ```
+
+- 1) は FT0〜72h で、モデルごとに数十分かかります（ECMWF/AIFS は約20MB、GFS は約38MB、GSM はファイル全体のため約600MB を取得）。まず試すだけなら FT を絞れます: `python update_latest.py --max-ft 12`
+- 特定のモデルだけ作る場合: `python update_latest.py --models gfs aifs`
+- **GSM を含めて比較したい場合**: GSM は気象庁データ（京大RISH配信）で**ローカル専用**です（公開サイトには載りません）。`update_latest.py` に含まれます。旧版 `gsm_chart_web` で取得済みのデータがあれば、再取得せずに使えます:
+  ```bash
+  /opt/anaconda3/envs/met_env_310/bin/python make_charts.py gsm 2026110312 --data-dir ../gsm_chart_web/data/gsm
+  ```
+  （日付は取得済みの初期値 YYYYMMDDHH に変える。FT3h 毎の日本域 0.125° も作られる）
+
+### 2回目以降（作成済みの画像を見るだけ）
+手順の 2) と 3) だけです。**表示するだけならダウンロードは発生しません**（作成済みの画像を読むだけ。オフラインでも見られます）。
+
+### 最新データに更新する
+- 画面ヘッダーの **「最新を取得」** ボタン（サーバーが全モデルを並行して更新し、完了すると自動で切り替わります）。
+- またはコマンド: `python update_latest.py`（作成済みの初期値は飛ばし、新しい初期値だけ作ります。`--dry-run` で何をするか確認できます）。
+
+### 画用紙版でモデルを比較する
+画用紙版を開き、比較したい図をクリックして上部の **「モデル違い」** を押すと、他のモデルの同じ図が並びます。初期値が違うモデルは**予報有効時刻を合わせて**表示されます（見出しに `GFS [11/04 00Z +0h]` のように初期値と予報時間が出ます）。↑↓キーで全図の予報時間が揃って進みます。操作の一覧は [nwp-chart-web.md](nwp-chart-web.md) を参照。
+
+### バックグラウンドで起動・停止する場合
+```bash
+nohup /opt/anaconda3/envs/met_env_310/bin/python server.py > /tmp/nwp_server.log 2>&1 &   # 起動
+kill $(lsof -ti :8790)                                                                      # 停止
+```
+
+### うまくいかないとき
+| 症状 | 対処 |
+|---|---|
+| `ModuleNotFoundError`（pygrib など） | `python3` ではなく `/opt/anaconda3/envs/met_env_310/bin/python` を使う |
+| `Address already in use`（ポートが使用中） | `python server.py --port 8791` のように別のポートにする（URLのポートも変える） |
+| 「manifest.json を読めません」「天気図がまだありません」 | 手順 1) の `update_latest.py` を先に実行する |
+| モデル選択に GSM が出ない | GSM を作っていない。`make_charts.py gsm ...` か `update_latest.py` で作る |
+| 比較したいモデルが「画像なし」 | 予報有効時刻が重ならない（相手の初期値より前の時刻など）。↑キーで時刻を進める |
+| 画像が古い・初期値が増えない | 「最新を取得」を押す。配信元に新しい初期値がまだ無い場合は作られない |
+
+- サーバーは `127.0.0.1`（自分のPCだけ）で待ち受けます。**他の端末・インターネットには公開されません。** 「最新を取得」ボタンもローカルからだけ使えます。
+- 旧版 `gsm_chart_web`（GSM のみ、ポート 8780）とは**ポートが違うので同時に起動できます**。
+- 公開サイト（GitHub Pages）にはローカルのデータは影響しません。公開側は GitHub Actions が別に更新します（下記）。
 
 ## 公開サイト（Web）
 
