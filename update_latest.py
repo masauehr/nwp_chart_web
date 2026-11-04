@@ -1,0 +1,146 @@
+#!/usr/bin/env python
+# coding: utf-8
+"""各モデルの「必要な予報時間が全部揃った最新の初期値」を取得して作図する（画面ボタン・CI用）。
+
+動作（モデルごと）:
+  1. 最新から順に、RISH等ではなく各配信元で max_ft まで揃っている初期値を探す（公開途中は飛ばす）
+  2. すでに作成済み（その初期値のFTが全部 output/ にある）なら何もしない
+  3. make_charts.py で 取得 → 作図 → 一時データ削除 → manifest更新
+
+使用例:
+  python update_latest.py --dry-run            # 何をするかだけ表示
+  python update_latest.py                      # ECMWFとGFSを更新（FT0〜72h、6時間毎）
+  python update_latest.py --models gfs --jobs 3
+  python update_latest.py --keep 2             # 各モデル最新2初期値だけ残す（古いPNGをファイル単位で削除。既定は削除しない）
+  python update_latest.py ? / -? / --?         # ヘルプ
+
+二重起動は output/.update.lock で防ぐ。
+"""
+import argparse
+import os
+import re
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+import nwp_data
+
+ROOT = Path(__file__).resolve().parent
+OUTPUT_DIR = ROOT / "output"
+LOCK = OUTPUT_DIR / ".update.lock"
+LOCK_STALE_SEC = 3 * 3600
+
+
+def log(msg):
+    print(f"{datetime.now():%Y-%m-%d %H:%M:%S} {msg}", flush=True)
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description="最新の初期値を取得して作図する",
+                                formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
+    p.add_argument("--models", nargs="+", default=list(nwp_data.MODELS), choices=list(nwp_data.MODELS))
+    p.add_argument("--max-ft", type=int, default=72)
+    p.add_argument("--interval", type=int, default=6)
+    p.add_argument("--jobs", type=int, default=2, help="作図の並列数")
+    p.add_argument("--dl-jobs", type=int, default=4, help="ダウンロードの並列数")
+    p.add_argument("--days-back", type=int, default=3)
+    p.add_argument("--keep", type=int, default=0, help="各モデルで残す初期値の数。0(既定)なら削除しない")
+    p.add_argument("--data-dir", default=str(nwp_data.DEFAULT_DATA_DIR))
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--force", action="store_true", help="作成済みでも作り直す")
+    if any(a in sys.argv[1:] for a in ("?", "-?", "--?")):
+        p.print_help()
+        sys.exit(0)
+    return p.parse_args()
+
+
+def acquire_lock():
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    if LOCK.exists():
+        age = time.time() - LOCK.stat().st_mtime
+        if age < LOCK_STALE_SEC:
+            return False
+        log(f"古いロック（{age / 3600:.1f}時間前）を無視して続行")
+    LOCK.write_text(str(os.getpid()))
+    return True
+
+
+def is_built(model, init_s, max_ft, interval):
+    """その初期値の全FTが、いずれかの地域に作成済みか。"""
+    d = OUTPUT_DIR / model / init_s
+    if not d.is_dir():
+        return False
+    have = set()
+    for f in d.glob("*/*_*.png"):
+        m = re.fullmatch(r"\w+?_(\d{3})\.png", f.name)
+        if m:
+            have.add(int(m.group(1)))
+    return all(ft in have for ft in range(0, max_ft + 1, interval))
+
+
+def prune(model, keep):
+    """モデルごとに最新 keep 個の初期値以外のPNGを削除（ファイル単位。ディレクトリごとは消さない）。"""
+    md = OUTPUT_DIR / model
+    if not md.is_dir():
+        return
+    inits = sorted([d.name for d in md.iterdir() if d.is_dir() and re.fullmatch(r"\d{10}", d.name)], reverse=True)
+    n = 0
+    for init_s in inits[keep:]:
+        d = md / init_s
+        for f in list(d.glob("*/*.png")):
+            f.unlink()
+            n += 1
+        for sub in list(d.iterdir()):
+            if sub.is_dir():
+                try:
+                    sub.rmdir()
+                except OSError:
+                    pass
+        try:
+            d.rmdir()
+        except OSError:
+            pass
+    if n:
+        log(f"{model}: 古い初期値 {len(inits[keep:])} 件を整理（PNG {n} 枚）")
+
+
+def main():
+    a = parse_args()
+    if not a.dry_run and not acquire_lock():
+        log("別の更新が実行中のため終了します")
+        return
+    rc_all = 0
+    try:
+        for model in a.models:
+            init = nwp_data.find_latest_complete(model, a.max_ft, a.interval, a.days_back)
+            if init is None:
+                log(f"{model}: FT{a.max_ft}hまで揃った初期値が見つかりません")
+                continue
+            init_s = f"{init:%Y%m%d%H}"
+            if not a.force and is_built(model, init_s, a.max_ft, a.interval):
+                log(f"{model}: {init_s} は作成済み")
+                continue
+            log(f"{model}: {init_s} を取得・作図します{' [dry-run]' if a.dry_run else ''}")
+            if a.dry_run:
+                continue
+            cmd = [sys.executable, "-u", str(ROOT / "make_charts.py"), model, init_s,
+                   "--max-ft", str(a.max_ft), "--interval", str(a.interval), "--jobs", str(a.jobs),
+                   "--dl-jobs", str(a.dl_jobs), "--data-dir", a.data_dir]
+            r = subprocess.run(cmd, cwd=ROOT)
+            log(f"{model}: make_charts 終了コード {r.returncode}")
+            rc_all = rc_all or r.returncode
+        if a.keep > 0 and not a.dry_run:
+            for model in a.models:
+                prune(model, a.keep)
+        if not a.dry_run:  # 常にmanifestを最新化
+            subprocess.run([sys.executable, str(ROOT / "make_charts.py"), "--manifest-only"], cwd=ROOT)
+    finally:
+        if not a.dry_run:
+            LOCK.unlink(missing_ok=True)
+    sys.exit(rc_all)
+
+
+if __name__ == "__main__":
+    main()

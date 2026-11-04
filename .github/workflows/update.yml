@@ -1,0 +1,63 @@
+name: update-charts
+
+# ECMWF / GFS の最新初期値を取得して作図し、GitHub Pages に公開する（未テスト: 初回は手動実行で確認すること）
+#  - 取得は必要な変数だけ（ECMWF約20MB・GFS約40MB/ステップ）。GRIB2は作図後に捨て、公開するのはPNGだけ
+#  - 公開サイトは毎回作り直す（常に各モデルの「FT72hまで揃った最新の初期値」）。履歴は残さない
+#  - 公開（Pages）にするにはリポジトリを public にし、Settings > Pages の Source を "GitHub Actions" にする
+on:
+  schedule:
+    # GFSは各初期値の約4時間後、ECMWFは約7〜8時間後に揃う。揃っていなければ1つ前の初期値になる
+    - cron: "30 5,11,17,23 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 依存のインストール
+        run: pip install -r requirements.txt
+
+      - name: Natural Earth（海岸線）のキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/cartopy
+          key: cartopy-ne-v1
+
+      - name: 最新初期値の取得と作図
+        run: python update_latest.py --jobs 4 --dl-jobs 6
+
+      - name: 公開用サイトの組み立て
+        run: python build_site.py
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

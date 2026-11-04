@@ -1,0 +1,35 @@
+:root { --bg:#f4f5f7; --fg:#1d2430; --accent:#1a4fd0; --line:#cfd5df; }
+* { box-sizing: border-box; }
+body { margin:0; font:14px/1.5 -apple-system,"Hiragino Sans","Yu Gothic",sans-serif; background:var(--bg); color:var(--fg); }
+header { display:flex; flex-wrap:wrap; align-items:center; gap:12px 18px; padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); }
+h1 { font-size:18px; margin:0 8px 0 0; }
+select, button, a#dlLink { font:inherit; padding:4px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; color:inherit; cursor:pointer; }
+button:hover, a#dlLink:hover { border-color:var(--accent); }
+a#dlLink { text-decoration:none; }
+header a { color:var(--accent); }
+#updated { margin-left:auto; color:#667; font-size:12px; }
+.seg { display:inline-flex; }
+.seg button { border-radius:0; margin-left:-1px; }
+.seg button:first-child { border-radius:6px 0 0 6px; margin-left:0; }
+.seg button:last-child { border-radius:0 6px 6px 0; }
+.seg button.on, #chartTabs button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+#chartTabs { display:flex; flex-wrap:wrap; gap:6px; padding:10px 16px 0; }
+#chartTabs button { border-radius:16px; }
+main { max-width:1000px; margin:0 auto; padding:10px 16px 24px; }
+#viewer { position:relative; background:#fff; border:1px solid var(--line); }
+#chartImg { display:block; width:100%; height:auto; aspect-ratio:950/760; background:#fff; }
+#noData[hidden] { display:none; }
+#noData { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#fff; color:#778; }
+#controls { display:flex; align-items:center; gap:8px; margin-top:10px; }
+#ftSlider { flex:1; min-width:80px; }
+#timeInfo { margin-top:6px; font-size:15px; font-variant-numeric:tabular-nums; }
+#timeInfo b { color:var(--accent); }
+#thumbs { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-top:14px; }
+#thumbs figure { margin:0; cursor:pointer; border:2px solid transparent; background:#fff; }
+#thumbs figure.on { border-color:var(--accent); }
+#thumbs img { display:block; width:100%; height:auto; }
+#thumbs figcaption { font-size:11px; padding:2px 4px; color:#556; }
+footer { max-width:1000px; margin:0 auto; padding:0 16px 24px; color:#667; font-size:12px; }
+@media (max-width:600px) { h1 { width:100%; } #controls { flex-wrap:wrap; } }
+#updateMsg { font-size:12px; color:#667; max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#btnUpdate:disabled { opacity:.5; cursor:default; }
