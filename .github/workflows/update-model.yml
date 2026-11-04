@@ -22,13 +22,30 @@ permissions:
   pages: write      # Pagesの再ビルド要求
 
 jobs:
+  # 対象モデルの一覧を決める（matrix は job の if では使えないため、先に一覧を作って matrix に渡す）
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      models: ${{ steps.pick.outputs.models }}
+    steps:
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_MODEL: ${{ inputs.model }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ] && [ "$INPUT_MODEL" != "all" ] && [ -n "$INPUT_MODEL" ]; then
+            echo "models=[\"$INPUT_MODEL\"]" >> "$GITHUB_OUTPUT"
+          else
+            echo 'models=["ecmwf","gfs","aifs"]' >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: plan
     strategy:
       fail-fast: false            # 1モデルが失敗しても他は続ける
       matrix:
-        model: [ecmwf, gfs, aifs]
-    # 手動実行でモデルを指定したときは、そのモデルだけ。定期実行は全モデル
-    if: github.event_name == 'schedule' || inputs.model == 'all' || inputs.model == matrix.model
+        model: ${{ fromJSON(needs.plan.outputs.models) }}   # モデルごとに別ジョブで並行
     runs-on: ubuntu-latest
     timeout-minutes: 120
     concurrency:
