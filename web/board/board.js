@@ -4,6 +4,7 @@
 // 同じ図種を別の表示範囲で複数並べる（広さ違い）ことも、配置を名前を付けて登録することもできる。
 // 画像規則: output/{model}/{init}/{region}/{chart}_{ft:03d}.png、一覧は output/manifest.json（相対パス。静的サイトでも動く）
 // 各図（パネル）は「モデル + 図種 + 表示範囲」を持ち、モデル・範囲が null なら全体の指定に揃う。ECMWFとGFSの同時比較もできる。
+// モデルによって最新の初期値が違っても比較できる: 全体の初期値が無いモデルの図は、予報有効時刻が一致する別の初期値の画像を出す。
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -38,7 +39,12 @@
   };
   const modelKeys = () => Object.keys(S.m.models || {});
   const entry = (model, init) => (((S.m.models[model] || {}).inits) || []).find((i) => i.init === init);
-  const regionMap = (model) => (entry(model, S.init) || {}).regions || {};      // 現在の初期値での {region: {chart: [ft]}}
+  const HOUR = 3600e3;
+  const initMs = (init) => parseInit(init).getTime();
+  const modelInits = (model) => ((S.m.models[model] || {}).inits) || [];      // 新しい順
+  // 現在の初期値での {region: {chart: [ft]}}。そのモデルに現在の初期値が無ければ、そのモデルの最新の初期値の内容で代用（どの図・範囲があるかの判定用）
+  const regionMap = (model) => (entry(model, S.init) || modelInits(model)[0] || {}).regions || {};
+  const listAt = (model, init, region, chart) => ((((entry(model, init) || {}).regions) || {})[region] || {})[chart] || [];
   const allInits = () => [...new Set(modelKeys().flatMap((m) => S.m.models[m].inits.map((i) => i.init)))].sort().reverse();
   const rank = (arr, v) => { const i = arr.indexOf(v); return i < 0 ? 99 : i; };
   const regionsOf = () => [...new Set(modelKeys().flatMap((m) => Object.keys(regionMap(m))))]
@@ -49,7 +55,6 @@
   const effRegion = (it) => it.region || S.region;
   const effModel = (it) => it.model || S.model;
   const has = (model, region, chart) => !!((regionMap(model)[region] || {})[chart]);
-  const availFts = (it) => ((regionMap(effModel(it))[effRegion(it)] || {})[it.chart]) || [];
   // 予報時間 ft がその図に無いとき（刻みの粗い範囲）は、直前の予報時間、無ければ最小のものを使う
   const pickFt = (list, ft) => {
     if (list.includes(ft)) return ft;
@@ -58,10 +63,40 @@
   };
   const visible = () => S.items.filter((i) => i.on);
 
-  // 表示中の図のFTの和集合（無ければ全図）
+  // 図 it を、全体の予報時間 gft（全体の初期値からのFT）のときに、どの初期値・FTの画像で出すかを決める。
+  //  - そのモデルに全体の初期値があれば、その初期値を使う（刻みが合わなければ直前のFT）
+  //  - 無ければ（モデルごとに最新の初期値が違う場合）、予報有効時刻が一致する別の初期値の画像を探す
+  function resolve(it, gft) {
+    if (gft === undefined) gft = S.ft;
+    const model = effModel(it), region = effRegion(it);
+    if (entry(model, S.init)) {
+      const list = listAt(model, S.init, region, it.chart);
+      return list.length ? { init: S.init, ft: pickFt(list, gft), exact: list.includes(gft) } : null;
+    }
+    const valid = initMs(S.init) + gft * HOUR;
+    for (const e of modelInits(model)) {
+      const ft = (valid - initMs(e.init)) / HOUR;
+      if (ft >= 0 && listAt(model, e.init, region, it.chart).includes(ft)) return { init: e.init, ft, exact: true, other: true };
+    }
+    return null;
+  }
+
+  // 全体の予報時間の候補。全体の初期値が無いモデルの図は、その初期値の予報時刻を全体のFTへ換算して加える（負は除く）
+  function panelFts(it) {
+    const model = effModel(it), region = effRegion(it);
+    if (entry(model, S.init)) return listAt(model, S.init, region, it.chart);
+    const out = [];
+    for (const e of modelInits(model)) {
+      const shift = (initMs(e.init) - initMs(S.init)) / HOUR;
+      for (const f of listAt(model, e.init, region, it.chart)) if (f + shift >= 0) out.push(f + shift);
+    }
+    return out;
+  }
+
+  // 表示中の図の予報時間の和集合（無ければ全図）
   function fts() {
     const set = new Set();
-    for (const it of visible()) availFts(it).forEach((f) => set.add(f));
+    for (const it of visible()) panelFts(it).forEach((f) => set.add(f));
     if (!set.size) for (const m of modelKeys()) for (const r of Object.values(regionMap(m))) for (const a of Object.values(r)) a.forEach((f) => set.add(f));
     return [...set].sort((a, b) => a - b);
   }
@@ -230,19 +265,28 @@
   }
 
   // 画像の差し替え（読み込み完了まで古い画像を残してちらつきを防ぐ）
+  const initShort = (init) => { const d = parseInit(init); return `${d.getUTCMonth() + 1}/${pad(d.getUTCDate())} ${pad(d.getUTCHours())}Z`; };
   function renderItem(it) {
     const e = ensureEl(it);
     applyGeom(it);
     e.sel.value = it.region || "";
     e.msel.value = it.model || "";
-    const list = availFts(it);
-    const base = SHORT[it.chart] || it.chart;
-    if (!list.length) { e.nodata.hidden = false; e.name.textContent = base; return; }
-    const ft = pickFt(list, S.ft);
-    e.name.textContent = ft === S.ft ? base : `${base} (FT${ft}h)`;
+    // 全体と別のモデルの図は、見出しにモデル名（IFS/GFS）を出す（選択欄は幅が狭いと隠れるため）
+    const mname = effModel(it) !== S.model && S.m.models[effModel(it)] ? " " + S.m.models[effModel(it)].label.split(" ").pop() : "";
+    const base = (SHORT[it.chart] || it.chart) + mname;
+    const r = resolve(it);
+    if (!r) {
+      const any = modelInits(effModel(it)).some((x) => listAt(effModel(it), x.init, effRegion(it), it.chart).length);
+      e.nodata.textContent = any ? "この予報時刻の画像なし（初期値が違うため時刻が合いません）" : "この図・範囲の画像なし";
+      e.nodata.hidden = false; e.name.textContent = base; e.cur = null;
+      return;
+    }
+    e.cur = r;
+    // 全体と別の初期値の図は、その初期値と予報時間を見出しに出す（予報有効時刻は合わせてある）
+    e.name.textContent = r.init !== S.init ? `${base} [${initShort(r.init)} +${r.ft}h]` : (r.exact ? base : `${base} (FT${r.ft}h)`);
     e.nodata.hidden = true;
     if (!it.on) return;
-    const url = imgUrl(effModel(it), S.init, effRegion(it), it.chart, ft);
+    const url = imgUrl(effModel(it), r.init, effRegion(it), it.chart, r.ft);
     e.wantUrl = url;
     const im = new Image();
     im.onload = () => { if (e.wantUrl === url) e.img.src = url; };
@@ -279,7 +323,9 @@
 
   function refreshLabel() {
     const d = parseInit(S.init);
-    $("dateLabel").textContent = `${fmt(d, S.ft, "UTC")} (${fmt(d, S.ft + 9, "JST")}) ｜ 初期値 ${pad(d.getUTCHours())}UTC ＋${S.ft}h`;
+    const other = visible().filter((it) => { const e = els[it.id]; return e && e.cur && e.cur.other; }).length;
+    $("dateLabel").textContent = `${fmt(d, S.ft, "UTC")} (${fmt(d, S.ft + 9, "JST")}) ｜ 初期値 ${pad(d.getUTCHours())}UTC ＋${S.ft}h`
+      + (other ? ` ｜ ${other}図は別の初期値（予報時刻を合わせて表示）` : "");
   }
 
   function refresh() {
@@ -296,8 +342,8 @@
     for (const ft of [f[i + 1], f[i - 1]]) {
       if (ft === undefined) continue;
       for (const it of visible()) {
-        const l = availFts(it);
-        if (l.length) new Image().src = imgUrl(effModel(it), S.init, effRegion(it), it.chart, pickFt(l, ft));
+        const r = resolve(it, ft);
+        if (r) new Image().src = imgUrl(effModel(it), r.init, effRegion(it), it.chart, r.ft);
       }
     }
   }
