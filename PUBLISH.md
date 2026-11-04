@@ -42,21 +42,23 @@ GitHub Pages の公開サイトは 1GB 以内が目安なので、最新1初期�
 | C. VPS等の常時稼働サーバー（cron + nginx） | 月数百円〜 | ディスクに自由に保存可 | 自由度は高いが、OS・セキュリティの保守が必要 |
 | D. Render 等の無料PaaS | 無料枠あり | 永続ディスクなし | メモリ512MB程度で作図に不向き。静的サイト配信だけなら可 |
 
-## 方式A の手順（ユーザーが実行する）
+## 公開の方式（2026-11-04 更新: 公開ブランチ方式）
 
-1. GitHub リポジトリを **public** で作成して push する。
-   ```bash
-   cd ~/projects/nwp_chart_web
-   git add -A && git commit -m "..."           # 済みならスキップ
-   gh repo create nwp_chart_web --public --source=. --remote=origin --push
-   ```
-   （private のままだと Pages は有料プランが必要。コード・画像は誰でも見られるようになる。秘密情報は含まれていない）
-2. リポジトリの Settings → Pages → Source を **GitHub Actions** にする。
-3. Actions タブの **update-charts → Run workflow** で初回を手動実行（所要 20〜40 分の想定。未テスト）。
+GitHub Pages の配信元を **gh-pages ブランチ**にし、画像と画面ファイルをそこへ入れる。
+
+- **画面だけの修正**: `web/**` を push → `deploy-web.yml` が画像を作らず画面ファイルだけを反映（数十秒）。
+- **データの更新**: `update-model.yml`（cron 1日4回 UTC 5:30/11:30/17:30/23:30、手動実行可）が**モデルごとに別ジョブで並行**して作図し、できたモデルから公開。各ジョブ内も、全取得完了を待たず取得できたステップから作図する。
+- 公開ブランチは**単一の孤立コミット**（履歴を積まない）。新しい画像だけが送られ、変わらない画像は再送されない。同時に公開して衝突したら取り直す。
+- 公開するのは各モデル**最新2初期値**（約3モデル×2×65MB≒400MB。Pagesの目安1GB以内）。初期値が違うモデル同士を予報有効時刻で比較するため。
+
+### 初回の切り替え手順（旧方式 = Actions配信 から移行）
+1. 新しいワークフローを push する。
+2. Actions で **update-model** を手動実行（all）して gh-pages ブランチを作る（数十分）。
+3. Settings → Pages → Source を **Deploy from a branch / gh-pages / (root)** に切り替える（`gh api -X PUT repos/<owner>/<repo>/pages -f build_type=legacy -f source[branch]=gh-pages -f source[path]=/`）。
 4. 公開URL: `https://<ユーザー名>.github.io/nwp_chart_web/`（画用紙版は末尾 `board/`）。
-5. 以降は `cron "30 5,11,17,23 * * *"`（UTC）で自動更新。止めるには Actions で workflow を Disable する。
+5. 止めるには Actions で update-model を Disable。
 
-失敗しやすい点: 初回の cartopy の海岸線データ取得、pip 版 `pygrib`/`cartopy` の導入。ログを見て `requirements.txt` を調整する。
+失敗しやすい点: push が競合したら自動で最大5回取り直す。`GITHUB_TOKEN` の push で Pages が再ビルドされない場合に備え、ワークフローは `pages/builds` の再ビルドも要求する。
 
 ## 公開時の利用条件と、本アプリでの対応（2026-11-04 に配信元の公式ページで確認）
 
@@ -75,7 +77,7 @@ GitHub Pages の公開サイトは 1GB 以内が目安なので、最新1初期�
 - 画用紙版: 画面下に短文を常時表示（図に重ならないよう画用紙の下端を調整）、「出典・免責」ボタンで詳細パネル。
 - 取得は必要な変数だけの部分取得、更新は1日4回。
 
-AIFS を追加する際は、AIモデルの出力としての追加の出典表記・注記の有無を ECMWF の公式ページで再確認する（未確認）。
+AIFS（ECMWF の AI 予報モデル）は IFS と同じ CC BY 4.0 + ECMWF Terms of Use。公式ページ（2026-11-04）に AIFS 固有の追加条件や「AI生成」の明示要件は見つからなかった。表示文言は IFS と同じで、AIFS であることを併記している。
 
 未確認: GFS専用ページ（EMC）の記述、ECMWFの具体的な頻度制限、ECMWF技術文書。ECMWFは「Service Charges / Service Agreement」の対象になりうるとの記載があるため、大規模な利用になる場合は再確認する。
 

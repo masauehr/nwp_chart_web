@@ -6,11 +6,14 @@
   1. 最新から順に、RISH等ではなく各配信元で max_ft まで揃っている初期値を探す（公開途中は飛ばす）
   2. すでに作成済み（その初期値のFTが全部 output/ にある）なら何もしない
   3. make_charts.py で 取得 → 作図 → 一時データ削除 → manifest更新
+  各モデルは別々のプロセスで**並行**して処理する（あるモデルの取得が遅くても他のモデルは待たない）。
+  各モデルの中でも、全ステップの取得完了を待たず、取得できたステップから順に作図する（make_charts.py）。
 
 使用例:
   python update_latest.py --dry-run            # 何をするかだけ表示
-  python update_latest.py                      # ECMWFとGFSを更新（FT0〜72h、6時間毎）
+  python update_latest.py                      # 全モデル（ECMWF・GFS・AIFS）を並行して更新（FT0〜72h、6時間毎）
   python update_latest.py --models gfs --jobs 3
+  python update_latest.py --sequential         # モデルを1つずつ順に処理（CPUやネットワークを絞りたいとき）
   python update_latest.py --keep 2             # 各モデル最新2初期値だけ残す（古いPNGをファイル単位で削除。既定は削除しない）
   python update_latest.py ? / -? / --?         # ヘルプ
 
@@ -48,6 +51,7 @@ def parse_args():
     p.add_argument("--days-back", type=int, default=3)
     p.add_argument("--keep", type=int, default=0, help="各モデルで残す初期値の数。0(既定)なら削除しない")
     p.add_argument("--data-dir", default=str(nwp_data.DEFAULT_DATA_DIR))
+    p.add_argument("--sequential", action="store_true", help="モデルを並行せず1つずつ処理する")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--force", action="store_true", help="作成済みでも作り直す")
     if any(a in sys.argv[1:] for a in ("?", "-?", "--?")):
@@ -113,6 +117,7 @@ def main():
         return
     rc_all = 0
     try:
+        todo = []  # (model, init_s)
         for model in a.models:
             init = nwp_data.find_latest_complete(model, a.max_ft, a.interval, a.days_back)
             if init is None:
@@ -123,14 +128,23 @@ def main():
                 log(f"{model}: {init_s} は作成済み")
                 continue
             log(f"{model}: {init_s} を取得・作図します{' [dry-run]' if a.dry_run else ''}")
-            if a.dry_run:
-                continue
-            cmd = [sys.executable, "-u", str(ROOT / "make_charts.py"), model, init_s,
-                   "--max-ft", str(a.max_ft), "--interval", str(a.interval), "--jobs", str(a.jobs),
-                   "--dl-jobs", str(a.dl_jobs), "--data-dir", a.data_dir]
-            r = subprocess.run(cmd, cwd=ROOT)
-            log(f"{model}: make_charts 終了コード {r.returncode}")
-            rc_all = rc_all or r.returncode
+            todo.append((model, init_s))
+        if todo and not a.dry_run:
+            def cmd_for(model, init_s):
+                return [sys.executable, "-u", str(ROOT / "make_charts.py"), model, init_s,
+                        "--max-ft", str(a.max_ft), "--interval", str(a.interval), "--jobs", str(a.jobs),
+                        "--dl-jobs", str(a.dl_jobs), "--data-dir", a.data_dir]
+            if a.sequential:
+                procs = []
+                for model, init_s in todo:
+                    r = subprocess.run(cmd_for(model, init_s), cwd=ROOT)
+                    procs.append((model, r.returncode))
+            else:
+                running = [(m, subprocess.Popen(cmd_for(m, i), cwd=ROOT)) for m, i in todo]  # モデルごとに別プロセスで並行
+                procs = [(m, pr.wait()) for m, pr in running]
+            for model, rc in procs:
+                log(f"{model}: make_charts 終了コード {rc}")
+                rc_all = rc_all or rc
         if a.keep > 0 and not a.dry_run:
             for model in a.models:
                 prune(model, a.keep)

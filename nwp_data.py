@@ -9,6 +9,8 @@
 
   ECMWF: https://data.ecmwf.int/forecasts/{YYYYMMDD}/{HH}z/ifs/0p25/oper/{YYYYMMDDHH}0000-{step}h-oper-fc.{grib2,index}
          利用条件: CC-BY-4.0（出典明記）。00/12UTCは360hまで、06/18UTCは90hまで。
+  AIFS : 同じ構造で ifs → aifs-single（ECMWFのAI予報モデル。00/06/12/18UTC、6時間刻みで360hまで）。
+         相対湿度 r が無く比湿 q があるため、読み込み時に q から相対湿度を計算する。ライセンスはIFSと同じCC-BY-4.0。
   GFS  : https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.{YYYYMMDD}/{HH}/atmos/gfs.t{HH}z.pgrb2.0p25.f{FFF}{,.idx}
          NOAAの成果物（米国政府、出典明記を推奨）。
 
@@ -35,7 +37,12 @@ DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "data"
 MODELS = {
     "ecmwf": dict(label="ECMWF IFS"),
     "gfs": dict(label="NOAA GFS"),
+    "aifs": dict(label="ECMWF AIFS"),
 }
+# ECMWFのオープンデータ配信（索引は .index、積算降水 tp は前ステップとの差分、雲量は0-1）の形式を持つモデル → 配信元のパスのモデル名
+ECMWF_LIKE = {"ecmwf": "ifs", "aifs": "aifs-single"}
+# 積算降水 tp を mm にする係数。IFSは単位が m、AIFSは kg/m²(=mm)（実データの units 属性で確認。2026-11-04）
+TP_TO_MM = {"ecmwf": 1000.0, "aifs": 1.0}
 
 CC_BY_URL = "https://creativecommons.org/licenses/by/4.0/"
 ECMWF_TERMS_URL = "https://apps.ecmwf.int/datasets/licences/general/"
@@ -51,9 +58,10 @@ def legal_text(model: str, year: int, accessed: str) -> dict:
           NOAA GFS = AWS Open Data の注記（出典の要請、改変物を原データと示さない、NOAA/NWSの推奨を示唆しない）
     規約は変わり得るため、公開を続ける間は定期的に配信元で再確認すること。
     """
-    if model == "ecmwf":
+    if model in ECMWF_LIKE:
+        what = "IFS open data" if model == "ecmwf" else "AIFS open data (ECMWF's machine-learning forecast model)"
         short = (f"© {year} ECMWF (www.ecmwf.int). This service is based on data and products of the European Centre "
-                 "for Medium-Range Weather Forecasts (ECMWF), IFS open data, licensed under CC BY 4.0. "
+                 f"for Medium-Range Weather Forecasts (ECMWF), {what}, licensed under CC BY 4.0. "
                  "Modified: the data were processed into charts. "
                  "ECMWF does not accept any liability for any error or omission in the data.")
         notice = [
@@ -61,7 +69,7 @@ def legal_text(model: str, year: int, accessed: str) -> dict:
             "Licence: Creative Commons Attribution 4.0 International (CC BY 4.0), " + CC_BY_URL
             + " （ECMWF Terms of Use: " + ECMWF_TERMS_URL + "）",
             "This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF) "
-            "(IFS open data, 0.25°).",
+            f"({what}, 0.25°).",
             "Modification: the original data were modified — only selected variables were used and they were processed "
             "(interpolated, derived quantities computed) into the charts shown here. These charts are not ECMWF products.",
             "Disclaimer: ECMWF does not accept any liability whatsoever for any error or omission in the data, their "
@@ -100,24 +108,26 @@ def parse_init(text: str) -> datetime:
 # ------------------------------------------------------------------ URL
 def base_url(model: str, init: datetime, ft: int) -> str:
     """索引・拡張子を除いたURL。"""
-    if model == "ecmwf":
-        return (f"{ECM_BASE}/{init:%Y%m%d}/{init:%H}z/ifs/0p25/oper/"
+    if model in ECMWF_LIKE:
+        return (f"{ECM_BASE}/{init:%Y%m%d}/{init:%H}z/{ECMWF_LIKE[model]}/0p25/oper/"
                 f"{init:%Y%m%d%H}0000-{ft}h-oper-fc")
     return f"{GFS_BASE}/gfs.{init:%Y%m%d}/{init:%H}/atmos/gfs.t{init:%H}z.pgrb2.0p25.f{ft:03d}"
 
 
 def index_url(model: str, init: datetime, ft: int) -> str:
-    return base_url(model, init, ft) + (".index" if model == "ecmwf" else ".idx")
+    return base_url(model, init, ft) + (".index" if model in ECMWF_LIKE else ".idx")
 
 
 def data_url(model: str, init: datetime, ft: int) -> str:
-    return base_url(model, init, ft) + (".grib2" if model == "ecmwf" else "")
+    return base_url(model, init, ft) + (".grib2" if model in ECMWF_LIKE else "")
 
 
 def max_step(model: str, init: datetime) -> int:
     """その初期値で提供される最大予報時間。"""
     if model == "ecmwf":
         return 360 if init.hour in (0, 12) else 90
+    if model == "aifs":
+        return 360                       # 00/06/12/18UTC とも6時間刻みで360hまで
     return 384
 
 
@@ -156,19 +166,20 @@ def find_latest_complete(model: str, max_ft: int, interval: int, days_back: int 
 
 
 # ------------------------------------------------------------------ 索引 → バイト範囲
-def _ecmwf_rows(init, ft):
-    r = requests.get(index_url("ecmwf", init, ft), headers=HEADERS, timeout=60)
+def _ecmwf_rows(model, init, ft):
+    r = requests.get(index_url(model, init, ft), headers=HEADERS, timeout=60)
     r.raise_for_status()
     return [json.loads(l) for l in r.text.splitlines() if l.strip()]
 
 
-def _ecmwf_select(rows):
-    """必要なメッセージの (offset, length) を返す。"""
+def _ecmwf_select(rows, model="ecmwf"):
+    """必要なメッセージの (offset, length) を返す。AIFSは相対湿度 r が無いので比湿 q も取る。"""
     pl = {str(l) for l in PLEVELS}
+    pvars = ("gh", "t", "u", "v", "r", "w") + (("q",) if model == "aifs" else ())
     out = []
     for r in rows:
         p, lt = r["param"], r.get("levtype")
-        if lt == "pl" and p in ("gh", "t", "u", "v", "r", "w") and r.get("levelist") in pl:
+        if lt == "pl" and p in pvars and r.get("levelist") in pl:
             out.append((r["_offset"], r["_length"]))
         elif lt == "sfc" and p in ("msl", "sp", "10u", "10v", "2t", "tcc", "tp"):
             out.append((r["_offset"], r["_length"]))
@@ -255,7 +266,7 @@ def fetch_subset(model: str, init: datetime, ft: int, data_dir: Path = DEFAULT_D
     if dest.exists() and dest.stat().st_size > 0:
         return dest
     try:
-        sel = _ecmwf_select(_ecmwf_rows(init, ft)) if model == "ecmwf" else _gfs_select(init, ft)
+        sel = _ecmwf_select(_ecmwf_rows(model, init, ft), model) if model in ECMWF_LIKE else _gfs_select(init, ft)
     except requests.RequestException as e:
         print(f"  索引の取得に失敗 {model} FT{ft}: {e}")
         return None
@@ -265,17 +276,17 @@ def fetch_subset(model: str, init: datetime, ft: int, data_dir: Path = DEFAULT_D
     return _download_ranges(data_url(model, init, ft), sel, dest)
 
 
-def fetch_tp_only(init: datetime, ft: int, data_dir: Path = DEFAULT_DATA_DIR) -> Path | None:
-    """ECMWFの積算降水(tp)だけを取る（直前ステップとの差分で時間降水を作るため。数百KB）。"""
-    dest = Path(data_dir) / "ecmwf" / f"{init:%Y%m%d%H}" / f"tp_f{ft:03d}.grib2"
+def fetch_tp_only(init: datetime, ft: int, data_dir: Path = DEFAULT_DATA_DIR, model: str = "ecmwf") -> Path | None:
+    """ECMWF系（IFS/AIFS）の積算降水(tp)だけを取る（直前ステップとの差分で時間降水を作るため。数百KB）。"""
+    dest = Path(data_dir) / model / f"{init:%Y%m%d%H}" / f"tp_f{ft:03d}.grib2"
     if dest.exists() and dest.stat().st_size > 0:
         return dest
     try:
-        rows = _ecmwf_rows(init, ft)
+        rows = _ecmwf_rows(model, init, ft)
     except requests.RequestException:
         return None
     sel = [(r["_offset"], r["_length"]) for r in rows if r["param"] == "tp" and r.get("levtype") == "sfc"]
-    return _download_ranges(data_url("ecmwf", init, ft), sel, dest) if sel else None
+    return _download_ranges(data_url(model, init, ft), sel, dest) if sel else None
 
 
 # ------------------------------------------------------------------ 読み込み
@@ -296,7 +307,7 @@ def _read(path: Path):
         for m in grbs:
             sn, tl, lv = m.shortName, m.typeOfLevel, m.level
             key = None
-            if tl == "isobaricInhPa" and sn in ("gh", "t", "u", "v", "r", "w") and lv in PLEVELS:
+            if tl == "isobaricInhPa" and sn in ("gh", "t", "u", "v", "r", "w", "q") and lv in PLEVELS:
                 key = ("p", lv, sn)
             elif tl == "heightAboveGround" and lv == 2 and sn in ("2r",):
                 continue
@@ -346,18 +357,18 @@ def load_fields(model: str, path: Path, tp_prev_path: Path | None = None, interv
     F["t2"] = d["t2"] - 273.15
     tcc = d.get("tcc")
     if tcc is not None:
-        F["tcc"] = tcc * 100.0 if model == "ecmwf" else tcc  # ECMWFは0-1、GFSは%
+        F["tcc"] = tcc * 100.0 if model in ECMWF_LIKE else tcc  # ECMWF/AIFSは0-1、GFSは%
     else:
         F["tcc"] = np.zeros_like(F["msl"])
     tp = d.get("tp")
     if tp is not None:
-        if model == "ecmwf":                                  # 初期時刻からの積算 [m]
+        if model in ECMWF_LIKE:                               # 初期時刻からの積算（単位は TP_TO_MM で mm へ）
             if tp_prev_path is not None and Path(tp_prev_path).exists():
                 pv = _read(Path(tp_prev_path)).get("tp")
                 if pv is not None:
-                    F["rr"] = ((tp - pv) * 1000.0 / interval).clip(min=0)
+                    F["rr"] = ((tp - pv) * TP_TO_MM[model] / interval).clip(min=0)
             elif tp_prev_zero:                                 # 最初の区間（FT=interval）は前の積算が0
-                F["rr"] = (tp * 1000.0 / interval).clip(min=0)
+                F["rr"] = (tp * TP_TO_MM[model] / interval).clip(min=0)
         else:                                                  # GFS: 窓付き積算 [kg/m2=mm]。窓幅は _gfs_select が最短を選ぶ
             F["rr"] = (tp / _gfs_window(Path(path))).clip(min=0)
             F["rr_h"] = _gfs_window(Path(path))
@@ -365,7 +376,12 @@ def load_fields(model: str, path: Path, tp_prev_path: Path | None = None, interv
         if not all(k in dd for k in ("gh", "t", "u", "v")):
             continue
         z = {"gh": dd["gh"], "t": dd["t"] - 273.15, "u": dd["u"], "v": dd["v"]}
-        z["r"] = dd.get("r", np.full_like(dd["t"], 50.0))
+        if "r" in dd:
+            z["r"] = dd["r"]
+        elif "q" in dd:                                       # AIFS: 比湿から相対湿度を計算
+            z["r"] = _rh_from_q(dd["q"], dd["t"] - 273.15, float(lv))
+        else:
+            z["r"] = np.full_like(dd["t"], 50.0)
         z["w"] = dd["w"] * 36.0 if "w" in dd else np.zeros_like(dd["t"])   # Pa/s → hPa/h
         F["p"][lv] = z
     if F["lats"][0] > F["lats"][-1]:       # 緯度を昇順（南→北）へ
@@ -377,6 +393,16 @@ def load_fields(model: str, path: Path, tp_prev_path: Path | None = None, interv
             for k in z:
                 z[k] = z[k][::-1, :]
     return F
+
+
+def _rh_from_q(q, t_c, p_hpa: float):
+    """比湿 q[kg/kg]・気温[℃]・気圧[hPa] → 相対湿度[%]。AIFS（相対湿度が無い）用。
+    e = q·p / (0.622 + 0.378·q)、飽和水蒸気圧は Bolton(1980) の式 es = 6.112·exp(17.67·T/(T+243.5))。"""
+    import numpy as np
+    q = np.clip(q, 0.0, None)
+    e = q * p_hpa / (0.622 + 0.378 * q)
+    es = 6.112 * np.exp(17.67 * t_c / (t_c + 243.5))
+    return np.clip(100.0 * e / es, 0.0, 100.0).astype(np.float32)
 
 
 def _gfs_window(path: Path) -> int:

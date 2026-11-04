@@ -5,6 +5,7 @@
 使用例:
   python make_charts.py ecmwf --latest                      # 最新の揃った初期値を取得して作図（FT0〜72h、6時間毎）
   python make_charts.py gfs 2026110312 --max-ft 24          # 初期値指定
+  python make_charts.py aifs --latest                       # ECMWFのAI予報モデル（6時間刻みのみ）
   python make_charts.py ecmwf --latest --interval 3 --jobs 3
   python make_charts.py gfs --latest --charts surf z500 --regions japan
   python make_charts.py --manifest-only                     # output/ を走査して manifest.json だけ更新
@@ -17,7 +18,7 @@ import argparse
 import json
 import re
 import sys
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -31,7 +32,7 @@ OUTPUT_DIR = ROOT / "output"
 def parse_args():
     p = argparse.ArgumentParser(description="ECMWF/GFS から天気図PNGを作成する",
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
-    p.add_argument("model", nargs="?", choices=list(nwp_data.MODELS), help="ecmwf または gfs")
+    p.add_argument("model", nargs="?", choices=list(nwp_data.MODELS), help="ecmwf / gfs / aifs")
     p.add_argument("init_time", nargs="?", help="初期時刻 YYYYMMDDHH（UTC）。--latest 指定時は省略可")
     p.add_argument("--latest", action="store_true", help="必要な予報時間が全部揃った最新の初期値を自動検索する")
     p.add_argument("--max-ft", type=int, default=72, help="作成する最大予報時間[h]（既定: 72）")
@@ -63,7 +64,7 @@ def _render_ft(args):
     if not path.exists():
         return ft, 0, "データなし"
     tp_prev, zero = None, False
-    if model == "ecmwf":
+    if model in nwp_data.ECMWF_LIKE:
         if ft - interval >= 1:
             tp_prev = d / model / init_s / f"tp_f{ft - interval:03d}.grib2"
         elif ft == interval:
@@ -84,16 +85,18 @@ def _render_ft(args):
                 print(f"  失敗: {model} {init_s} FT{ft} {region}/{chart}: {e!r}", flush=True)
     if not keep:
         path.unlink(missing_ok=True)  # 作図が終わったら一時データを捨てる（ファイル単位で削除）
-        if model == "ecmwf":
+        if model in nwp_data.ECMWF_LIKE:
             (d / model / init_s / f"tp_f{ft - interval:03d}.grib2").unlink(missing_ok=True)
     return ft, n, "ok" if n else "データなし"
 
 
-def write_manifest():
-    """output/ を走査して output/manifest.json を作る（Webアプリはこれを読む）。"""
+def write_manifest(output_dir=None):
+    """output/ を走査して output/manifest.json を作る（Webアプリはこれを読む）。
+    output_dir を渡すと、そのディレクトリ（公開用サイトの output/ など）を対象にする。"""
+    out_dir = Path(output_dir) if output_dir else OUTPUT_DIR
     models = {}
     for model, info in nwp_data.MODELS.items():
-        md = OUTPUT_DIR / model
+        md = out_dir / model
         inits = []
         if md.is_dir():
             for d in sorted(md.iterdir(), reverse=True):
@@ -126,8 +129,8 @@ def write_manifest():
         "regions": {k: v["label"] for k, v in nwp_charts.REGIONS.items()},
         "models": models,
     }
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    (OUTPUT_DIR / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
     summary = ", ".join("%s %d件" % (m, len(v["inits"])) for m, v in models.items()) or "画像なし"
     print("manifest.json 更新: " + summary, flush=True)
 
@@ -147,26 +150,40 @@ def build(a):
     init_s = f"{init:%Y%m%d%H}"
     ft_list = list(range(a.min_ft, a.max_ft + 1, a.interval))
 
-    if not a.no_download:
-        print(f"ダウンロード({model}): FT {len(ft_list)} 個（必要な変数だけ）", flush=True)
+    def make_task(ft):
+        return (model, init_s, ft, a.charts, a.regions, str(data_dir), a.interval, a.keep_data)
 
-        def dl(ft):
-            ok = nwp_data.fetch_subset(model, init, ft, data_dir) is not None
-            if ok and model == "ecmwf" and ft - a.interval >= 1:
-                nwp_data.fetch_tp_only(init, ft - a.interval, data_dir)
-            return ft, ok
+    def dl(ft):
+        """1ステップ分を取得する。ECMWF系は降水の差分用に1つ前のステップの tp も取る。"""
+        if a.no_download:
+            return ft, (data_dir / model / init_s / f"f{ft:03d}.grib2").exists()
+        ok = nwp_data.fetch_subset(model, init, ft, data_dir) is not None
+        if ok and model in nwp_data.ECMWF_LIKE and ft - a.interval >= 1:
+            nwp_data.fetch_tp_only(init, ft - a.interval, data_dir, model)
+        return ft, ok
 
-        with ThreadPoolExecutor(max_workers=a.dl_jobs) as ex:
-            res = list(ex.map(dl, ft_list))
-        ft_list = [ft for ft, ok in res if ok]
-    print(f"描画: FT {len(ft_list)} 個 × 地域 {len(a.regions)} × 図種 {len(a.charts)}", flush=True)
-
-    tasks = [(model, init_s, ft, a.charts, a.regions, str(data_dir), a.interval, a.keep_data) for ft in ft_list]
-    if a.jobs > 1:
-        with ProcessPoolExecutor(max_workers=a.jobs) as ex:
-            results = list(ex.map(_render_ft, tasks))
-    else:
-        results = [_render_ft(t) for t in tasks]
+    # 取得と作図は「全ステップの取得が終わるまで待たず」重ねて進める:
+    # 1ステップ取得できたらすぐ作図に回す（取得は別スレッド、作図は別プロセス）
+    print(f"{model}: 取得と作図を並行して実行（FT {len(ft_list)} 個、必要な変数だけ取得）", flush=True)
+    results = []
+    with ThreadPoolExecutor(max_workers=a.dl_jobs) as dl_ex:
+        dl_futs = [dl_ex.submit(dl, ft) for ft in ft_list]
+        if a.jobs > 1:
+            with ProcessPoolExecutor(max_workers=a.jobs) as rn_ex:
+                rn_futs = []
+                for f in as_completed(dl_futs):
+                    ft, ok = f.result()
+                    if ok:
+                        rn_futs.append(rn_ex.submit(_render_ft, make_task(ft)))
+                        print(f"  {model} FT{ft}h 取得完了 → 作図開始", flush=True)
+                    else:
+                        print(f"  {model} FT{ft}h 取得失敗（スキップ）", flush=True)
+                results = [f.result() for f in rn_futs]
+        else:
+            for f in as_completed(dl_futs):
+                ft, ok = f.result()
+                if ok:
+                    results.append(_render_ft(make_task(ft)))
     total = sum(r[1] for r in results)
     for ft, n, msg in results:
         if msg != "ok":
