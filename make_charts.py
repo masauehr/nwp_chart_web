@@ -113,9 +113,15 @@ def write_manifest():
                 if regions:
                     inits.append({"init": d.name, "regions": regions})
         if inits:
-            models[model] = {"label": info["label"], "credit": info["credit"], "inits": inits}
+            now = datetime.now(timezone.utc)
+            legal = nwp_data.legal_text(model, now.year, now.strftime("%Y-%m-%d"))
+            models[model] = {"label": info["label"], "credit": legal["short"], "notice": legal["notice"],
+                             "license_url": legal["license_url"], "inits": inits}
     manifest = {
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "disclaimer": ("本サイトの図は、上記の元データを加工して本アプリが作図したもので、各提供元（ECMWF・NOAA/NCEP）の公式な図ではありません。"
+                       "予報は不確実性を含みます。防災・安全に関わる判断には、気象庁など公的機関の公式情報を使ってください。"
+                       "図の内容や利用による損害について、本サイトの作成者は責任を負いません。"),
         "charts": {k: v["label"] for k, v in nwp_charts.CHARTS.items()},
         "regions": {k: v["label"] for k, v in nwp_charts.REGIONS.items()},
         "models": models,

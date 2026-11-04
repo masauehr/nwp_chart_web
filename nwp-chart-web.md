@@ -68,5 +68,5 @@ python make_charts.py ?                     # ヘルプ
 - 最新の初期値は「FT72h（既定）まで揃っているもの」だけを採用（公開途中の初期値は飛ばす）。ECMWFの06/18UTCは90hまで。
 - 取得GRIB2は `data/{model}/{初期値}/` に一時保存し、作図後にファイル単位で削除（`--keep-data` で残す）。
 - 公開の可否・方式・手順・容量見積もりは **PUBLISH.md**。**公開（public化・Pages有効化）は未実施**。
-- 出典は画面に表示している（ECMWF: CC BY 4.0 / NOAA）。
+- **出典・ライセンス・免責・改変の表示**を画面に常時出している（ECMWF: 著作権表示・「based on data and products of ECMWF」・CC BY 4.0・免責・改変の明示、NOAA: 出典と取得日・改変の明示・NOAA/NWS非推奨・免責）。文言は `nwp_data.legal_text()`、規約の根拠と未確認事項は PUBLISH.md。
 - 0.25°データは、東アジア広域の `ept850` で等値線が細かくなる（今後の調整余地）。

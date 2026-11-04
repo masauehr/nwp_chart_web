@@ -22,3 +22,4 @@ ECMWF オープンデータと NOAA GFS（0.25°）から気象庁ビューア�
 - Web は**相対パス**（`output/`、`../output/`）。GitHub Pages のサブパスで動くように絶対パスにしない。更新API(`api/`)は無ければボタンを隠す。
 - 更新APIはローカル限定（`_local_only`）。外せない。
 - 公開（Pages・public化）は勝手にしない。ユーザー確認を取る。
+- **出典・ライセンス・免責・改変の表示は外さない**（ECMWF CC BY 4.0 の要件）。文言は `nwp_data.legal_text()`、manifest経由で表示。規約の根拠は PUBLISH.md。

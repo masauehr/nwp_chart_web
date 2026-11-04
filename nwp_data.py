@@ -33,9 +33,56 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; NWP-Chart-Web/0.1)"}
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "data"
 
 MODELS = {
-    "ecmwf": dict(label="ECMWF IFS", credit="Contains ECMWF open data (CC BY 4.0), ECMWF IFS 0.25°"),
-    "gfs": dict(label="NOAA GFS", credit="NOAA/NCEP GFS 0.25°"),
+    "ecmwf": dict(label="ECMWF IFS"),
+    "gfs": dict(label="NOAA GFS"),
 }
+
+CC_BY_URL = "https://creativecommons.org/licenses/by/4.0/"
+ECMWF_TERMS_URL = "https://apps.ecmwf.int/datasets/licences/general/"
+GFS_REGISTRY_URL = "https://registry.opendata.aws/noaa-gfs-bdp-pds/"
+
+
+def legal_text(model: str, year: int, accessed: str) -> dict:
+    """出典・ライセンス・免責・改変の表示文言を返す（配信元の利用条件に沿った内容）。
+
+    short : 画面に常時出す短い表示（出典・ライセンス・改変・免責を各1文）
+    notice: 詳細（段落のリスト）
+    根拠: ECMWF = CC BY 4.0 + ECMWF Terms of Use（著作権表示・出典・ライセンス・免責・改変の明示が必要）
+          NOAA GFS = AWS Open Data の注記（出典の要請、改変物を原データと示さない、NOAA/NWSの推奨を示唆しない）
+    規約は変わり得るため、公開を続ける間は定期的に配信元で再確認すること。
+    """
+    if model == "ecmwf":
+        short = (f"© {year} ECMWF (www.ecmwf.int). This service is based on data and products of the European Centre "
+                 "for Medium-Range Weather Forecasts (ECMWF), IFS open data, licensed under CC BY 4.0. "
+                 "Modified: the data were processed into charts. "
+                 "ECMWF does not accept any liability for any error or omission in the data.")
+        notice = [
+            f"Copyright © {year} European Centre for Medium-Range Weather Forecasts (ECMWF). Source: www.ecmwf.int.",
+            "Licence: Creative Commons Attribution 4.0 International (CC BY 4.0), " + CC_BY_URL
+            + " （ECMWF Terms of Use: " + ECMWF_TERMS_URL + "）",
+            "This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF) "
+            "(IFS open data, 0.25°).",
+            "Modification: the original data were modified — only selected variables were used and they were processed "
+            "(interpolated, derived quantities computed) into the charts shown here. These charts are not ECMWF products.",
+            "Disclaimer: ECMWF does not accept any liability whatsoever for any error or omission in the data, their "
+            "availability, or for any loss or damage arising from their use. The data are provided on an \"as is\" basis.",
+        ]
+        return dict(short=short, notice=notice, license_url=CC_BY_URL)
+    short = (f"NOAA/NCEP Global Forecast System (GFS), accessed {accessed} from registry.opendata.aws/noaa-gfs-bdp-pds. "
+             "Modified: the data were processed into charts and are not original NOAA data. "
+             "Not endorsed by or affiliated with NOAA/NWS. Provided as is; use at your own risk.")
+    notice = [
+        f"NOAA/NCEP Global Forecast System (GFS) 0.25° was accessed on {accessed} from {GFS_REGISTRY_URL}",
+        "Modification: the original data were modified — only selected variables were used and they were processed "
+        "(derived quantities computed) into the charts shown here. These charts are not original, unaltered NOAA data "
+        "and are not official government materials.",
+        "This site is not endorsed by, and is not affiliated with, NOAA or the National Weather Service. "
+        "NOAA/NWS names and logos are not used.",
+        "Disclaimer: the information is provided \"as is\" without warranty of any kind; the user assumes the entire risk "
+        "of its use.",
+    ]
+    return dict(short=short, notice=notice, license_url=GFS_REGISTRY_URL)
+
 
 ECM_BASE = "https://data.ecmwf.int/forecasts"
 GFS_BASE = "https://noaa-gfs-bdp-pds.s3.amazonaws.com"

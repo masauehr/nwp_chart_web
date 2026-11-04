@@ -74,7 +74,10 @@
   }
 
   const barH = () => (document.body.classList.contains("nobar") ? 0 : $("bar").offsetHeight);
-  function fitBoard() { $("board").style.top = barH() + "px"; }
+  function fitBoard() {
+    $("board").style.top = barH() + "px";
+    $("board").style.bottom = ($("credit").offsetHeight + 8) + "px"; // 画面下の出典表示に図が隠れないように
+  }
 
   // ---------- 保存・復元
   const save = () => localStorage.setItem(LS_KEY, JSON.stringify(
@@ -246,10 +249,32 @@
     im.src = url;
   }
 
-  // 画面に出ているモデルの出典を、画面左下に表示する（データ提供元の出典明記）
+  // 出典・ライセンス・免責・改変の表示（配信元の利用条件に基づく。文言は manifest.json から読む）
+  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s）)]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+  // 画面に出ているモデルの出典を画面下に常時表示する（モデルごと。ライセンス名はリンク）
   function refreshCredit() {
-    const used = [...new Set(visible().map(effModel))];
-    $("credit").textContent = "データ: " + used.map((m) => (S.m.models[m] || {}).credit).filter(Boolean).join(" / ");
+    const used = [...new Set(visible().map(effModel))].filter((m) => S.m.models[m]);
+    $("credit").innerHTML = used.map((m) => {
+      const md = S.m.models[m];
+      return esc(md.credit).replace("CC BY 4.0", `<a href="${md.license_url}" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>`);
+    }).join("<br>") + ' <a href="#" id="legalLink">[出典・免責の詳細]</a>';
+    $("legalLink").onclick = (e) => { e.preventDefault(); toggleLegal(); };
+  }
+
+  function toggleLegal() {
+    const box = $("legalPanel");
+    if (box.hidden) {
+      let html = "<h2>出典・ライセンス・免責・改変</h2>";
+      for (const k of modelKeys()) {
+        html += `<h3>${esc(S.m.models[k].label)}</h3>` + S.m.models[k].notice.map((t) => `<p>${linkify(t)}</p>`).join("");
+      }
+      if (S.m.disclaimer) html += `<h3>本サイトについて</h3><p>${esc(S.m.disclaimer)}</p>`;
+      html += '<button id="btnLegalClose">閉じる</button>';
+      box.innerHTML = html;
+      $("btnLegalClose").onclick = () => { box.hidden = true; };
+    }
+    box.hidden = !box.hidden;
   }
 
   function refreshLabel() {
@@ -529,12 +554,14 @@
   $("btnReset").onclick = resetLayout;
   $("btnHelp").onclick = () => { $("help").hidden = !$("help").hidden; };
   $("btnHelpClose").onclick = () => { $("help").hidden = true; };
+  $("btnLegal").onclick = toggleLegal;
   $("btnPresetSave").onclick = savePreset;
   $("btnPresetDel").onclick = deletePreset;
   $("presetSel").onchange = () => { if ($("presetSel").value) applyPreset($("presetSel").value); };
   $("presetName").addEventListener("keydown", (e) => { if (e.key === "Enter") savePreset(); });
   addEventListener("resize", fitBoard);
-  new ResizeObserver(fitBoard).observe($("bar")); // 折り返しでメニューの高さが変わっても画用紙の開始位置を合わせる
+  new ResizeObserver(fitBoard).observe($("bar"));
+  new ResizeObserver(fitBoard).observe($("credit")); // 折り返しでメニューの高さが変わっても画用紙の開始位置を合わせる
 
   // ---------- 起動
   async function boot() {

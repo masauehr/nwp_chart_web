@@ -92,8 +92,22 @@
     };
   }
 
-  function buildCredit() { // データ提供元の表示（ライセンス上の出典明記）
-    $("credit").textContent = "データ: " + S.manifest.models[S.model].credit;
+  // 出典・ライセンス・免責・改変の表示（配信元の利用条件に基づく。文言は manifest.json から読む）
+  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s）)]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+  function buildCredit() {
+    const md = S.manifest.models[S.model];
+    // 画面上部に常時出す短い表示。ライセンス名はリンクにする
+    const short = esc(md.credit).replace("CC BY 4.0", `<a href="${md.license_url}" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>`);
+    $("credit").innerHTML = short;
+    // フッターに全モデルの詳細（どのモデルを選んでいても全て表示）
+    let html = "";
+    for (const k of Object.keys(S.manifest.models)) {
+      const m = S.manifest.models[k];
+      html += `<h3>${esc(m.label)}</h3>` + m.notice.map((t) => `<p>${linkify(t)}</p>`).join("");
+    }
+    if (S.manifest.disclaimer) html += `<h3>本サイトについて</h3><p>${esc(S.manifest.disclaimer)}</p>`;
+    $("legal").innerHTML = html;
   }
 
   function buildInitSel() {

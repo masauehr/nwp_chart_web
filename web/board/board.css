@@ -43,7 +43,15 @@ body.nobar #board { top: 0 !important; }
 .panel .title .dup, .panel .title .x { cursor: pointer; padding: 0 3px; }
 .panel .title .dup:hover, .panel .title .x:hover { color: #ffd166; }
 .panel.variant .title { background: #5b4b8a; }
-#credit { position: fixed; left: 6px; bottom: 4px; z-index: 9000; font-size: 11px; color: #444; background: rgba(255,255,255,.8); padding: 1px 6px; border-radius: 4px; }
+#credit { position: fixed; left: 6px; right: 6px; bottom: 4px; z-index: 9000; font-size: 11px; line-height: 1.35; color: #333; background: rgba(255,255,255,.92); padding: 3px 8px; border-radius: 4px; border: 1px solid #ccc; }
+#credit a { color: #1a4fd0; }
 .panel .title select.msel { max-width: 92px; }
 .panel .title .name { flex: none; }
 .panel .title select { max-width: 84px; }
+#legalPanel { position: fixed; z-index: 20000; left: 50%; top: 70px; transform: translateX(-50%); width: 760px; max-width: calc(100vw - 30px);
+  max-height: calc(100vh - 130px); overflow: auto; background: #fff; border: 1px solid #333; padding: 10px 16px; box-shadow: 0 4px 16px rgba(0,0,0,.4); font-size: 12px; }
+#legalPanel[hidden] { display: none; }
+#legalPanel h2 { font-size: 15px; margin: 0 0 6px; }
+#legalPanel h3 { font-size: 13px; margin: 10px 0 2px; }
+#legalPanel p { margin: 2px 0; word-break: break-word; }
+#legalPanel button { font: inherit; padding: 3px 12px; margin-top: 8px; }
