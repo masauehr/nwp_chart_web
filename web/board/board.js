@@ -271,8 +271,8 @@
     applyGeom(it);
     e.sel.value = it.region || "";
     e.msel.value = it.model || "";
-    // 全体と別のモデルの図は、見出しにモデル名（IFS/GFS）を出す（選択欄は幅が狭いと隠れるため）
-    const mname = effModel(it) !== S.model && S.m.models[effModel(it)] ? " " + S.m.models[effModel(it)].label.split(" ").pop() : "";
+    // 全体と別のモデルの図は、見出しにモデル名（ECMWF/GFS）を出す（選択欄は幅が狭いと隠れるため）
+    const mname = effModel(it) !== S.model && S.m.models[effModel(it)] ? " " + S.m.models[effModel(it)].label : "";
     const base = (SHORT[it.chart] || it.chart) + mname;
     const r = resolve(it);
     if (!r) {
@@ -516,7 +516,7 @@
     si.innerHTML = "";
     for (const init of allInits()) {
       const o = document.createElement("option");
-      const who = modelKeys().filter((m) => entry(m, init)).map((m) => S.m.models[m].label.split(" ")[0]).join("/");
+      const who = modelKeys().filter((m) => entry(m, init)).map((m) => S.m.models[m].label).join("/");
       o.value = init; o.textContent = `${fmt(parseInit(init), 0, "UTC")} 初期値 [${who}]`;
       si.appendChild(o);
     }

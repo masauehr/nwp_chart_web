@@ -35,7 +35,7 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; NWP-Chart-Web/0.1)"}
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "data"
 
 MODELS = {
-    "ecmwf": dict(label="ECMWF IFS"),
+    "ecmwf": dict(label="ECMWF"),
     "gfs": dict(label="NOAA GFS"),
     "aifs": dict(label="ECMWF AIFS"),
     # 気象庁GSM（京大RISH配信）。**ローカル専用**: 公開サイト（gh-pages）には載せない。publish.py と CI の対象から除外する

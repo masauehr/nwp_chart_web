@@ -32,9 +32,10 @@ body.cmp #views { grid-template-columns:1fr 1fr; }
 .cmpToggle { display:inline-flex; align-items:center; gap:4px; cursor:pointer; }
 #cmpBox { display:inline-flex; align-items:center; gap:8px; }
 #cmpBox[hidden] { display:none; }
-#controls { display:flex; align-items:center; gap:8px; margin-top:10px; }
+#controls { display:flex; align-items:center; gap:8px; }
 #ftSlider { flex:1; min-width:80px; }
-#timeInfo { margin-top:6px; font-size:15px; font-variant-numeric:tabular-nums; }
+#btnPlay { min-width:3.6em; }
+#timeInfo { margin:6px 0 10px; font-size:15px; font-variant-numeric:tabular-nums; }
 #timeInfo b { color:var(--accent); }
 #thumbs { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-top:14px; }
 #thumbs figure { margin:0; cursor:pointer; border:2px solid transparent; background:#fff; }

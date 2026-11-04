@@ -339,8 +339,8 @@
   }
   function setIndex(i) { const f = fts(); if (f.length) { S.ft = f[Math.min(Math.max(i, 0), f.length - 1)]; update(); } }
   function play() {
-    if (S.timer) { clearInterval(S.timer); S.timer = null; $("btnPlay").textContent = "▶"; return; }
-    $("btnPlay").textContent = "⏸";
+    if (S.timer) { clearInterval(S.timer); S.timer = null; $("btnPlay").textContent = "再生"; return; }
+    $("btnPlay").textContent = "停止";
     S.timer = setInterval(() => step(1), +$("speedSel").value);
   }
 

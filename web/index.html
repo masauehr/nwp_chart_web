@@ -33,6 +33,22 @@
 <nav id="chartTabs" role="tablist" aria-label="図種"></nav>
 
 <main>
+  <div id="controls">
+    <button id="btnFirst" title="最初 (Home)">⏮</button>
+    <button id="btnPrev" title="1コマ戻る (←)">|◀</button>
+    <button id="btnPlay" title="再生/停止 (Space)">再生</button>
+    <button id="btnNext" title="1コマ進む (→)">▶|</button>
+    <button id="btnLast" title="最後 (End)">⏭</button>
+    <input id="ftSlider" type="range" min="0" max="0" step="1" value="0">
+    <select id="speedSel" title="再生速度">
+      <option value="900">遅い</option>
+      <option value="500" selected>標準</option>
+      <option value="250">速い</option>
+    </select>
+    <a id="dlLink" download title="この画像を保存">保存</a>
+  </div>
+  <div id="timeInfo"></div>
+
   <div id="views">
     <div class="view" id="view1">
       <div class="cap" id="cap1" hidden></div>
@@ -49,22 +65,6 @@
       </div>
     </div>
   </div>
-
-  <div id="controls">
-    <button id="btnFirst" title="最初 (Home)">⏮</button>
-    <button id="btnPrev" title="前 (←)">◀</button>
-    <button id="btnPlay" title="再生/停止 (Space)">▶</button>
-    <button id="btnNext" title="次 (→)">▶|</button>
-    <button id="btnLast" title="最後 (End)">⏭</button>
-    <input id="ftSlider" type="range" min="0" max="0" step="1" value="0">
-    <select id="speedSel" title="再生速度">
-      <option value="900">遅い</option>
-      <option value="500" selected>標準</option>
-      <option value="250">速い</option>
-    </select>
-    <a id="dlLink" download title="この画像を保存">保存</a>
-  </div>
-  <div id="timeInfo"></div>
 
   <section id="thumbs" aria-label="同じ予報時間の図種一覧"></section>
 </main>

@@ -371,9 +371,9 @@ def _chart_tdep(ax, V, F, ctx, lv):
     """850/925hPa: 気温・湿数・風"""
     d = F["p"][lv]
     V.set_level(F, lv)
-    ttd = d["t"] - dewpoint(d["t"], d["r"])
+    ttd = np.maximum(d["t"] - dewpoint(d["t"], d["r"]), 0.0)  # 飽和付近の-1e-6程度の負値を0に（等値線の穴を防ぐ）
     BL = "#3a6fd8"
-    hatch(ax, V, ttd, [0, 1.5, 3], ["\\\\\\\\\\\\", "\\\\\\\\"], BL)
+    hatch(ax, V, ttd, [-0.1, 1.5, 3], ["\\\\\\\\\\\\", "\\\\\\\\"], BL)
     hatch(ax, V, ttd, [3, 6], ["////"], "#8a8a8a")
     ax.contour(V.flon, V.flat, V.fine(ttd), levels=[3], colors=BL, linewidths=0.8,
                linestyles="--", transform=PC, zorder=3)
