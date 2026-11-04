@@ -324,13 +324,18 @@ def load_fields_rjp(data_dir: Path, init: datetime, ft: int) -> dict | None:
 
 
 # ------------------------------------------------------------------ nwp_chart_web 用の入口
-def find_latest_complete(max_ft: int, interval: int = 3, days_back: int = 3):
-    """Rgl(6時間毎)とRjp(3時間毎)が max_ft まで両方揃っている最新の初期値を返す。無ければ None。"""
+def find_latest_complete(max_ft: int, interval: int = 3, days_back: int = 3, hours=None):
+    """Rgl(6時間毎)とRjp(3時間毎)が max_ft まで両方揃っている最新の初期値を返す。無ければ None。
+
+    hours を指定すると、その時刻（UTC）の初期値だけを対象にする（例: [0, 12]）。
+    """
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     for d in range(days_back + 1):
         found = list_remote(today - timedelta(days=d))
         for init_s in sorted(found, reverse=True):
             init = parse_init(init_s)
+            if hours and init.hour not in hours:
+                continue
             if remote_status(init, max_ft, 6, interval)["complete"]:
                 return init
     return None

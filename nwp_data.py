@@ -175,7 +175,7 @@ def candidate_inits(days_back: int = 3):
     return [now - timedelta(hours=6 * i) for i in range(days_back * 4 + 1)]
 
 
-def find_latest_complete(model: str, max_ft: int, interval: int, days_back: int = 3):
+def find_latest_complete(model: str, max_ft: int, interval: int, days_back: int = 3, hours=None):
     """必要な全予報時間が揃っている最新の初期値を返す（公開途中の初期値は避ける）。無ければ None。
 
     ステップは順に公開されるため、最後の予報時間と最初の予報時間の存在確認で代表させる。
@@ -183,8 +183,10 @@ def find_latest_complete(model: str, max_ft: int, interval: int, days_back: int 
     """
     if model == "gsm":
         import gsm_source
-        return gsm_source.find_latest_complete(max_ft, interval, days_back)
+        return gsm_source.find_latest_complete(max_ft, interval, days_back, hours)
     for init in candidate_inits(days_back):
+        if hours and init.hour not in hours:
+            continue
         if max_ft > max_step(model, init):
             continue
         last = (max_ft // interval) * interval

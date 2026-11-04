@@ -65,7 +65,7 @@ web/ (相対パス) ← server.py(ローカル) / 静的ホスト(公開)
 - 出典文言は IFS と同じ（`legal_text`。AIFSであること・機械学習モデルであることを併記）。
 
 ## 既知の制約・今後
-- 公開ブランチ方式のCIは未実行（pip版の依存導入は旧方式の初回実行で成功済み。`publish.py` のgit操作はローカルの空リポジトリで検証済みだが、GitHub上での push/Pages ビルドは未確認）。
+- 公開ブランチ方式のCIはGitHub上で確認済み（2026-11-04: update-model が workflow_dispatch で成功（約21分）、gh-pages への push・Pages ビルド・deploy-web も成功）。
 - ECMWF 00/12UTC の 72h が揃う時刻は実測していない（cron の時刻は目安）。
 - 3時間毎の運用は容量が倍（約280MB）。必要になったら `--interval 3`。
 - ECMWF/AIFS の 975hPa は無いため `t975` は GFS のみ。

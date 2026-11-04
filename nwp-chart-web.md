@@ -104,6 +104,10 @@ GitHub Pages の配信元は **gh-pages ブランチ**（画像と画面ファ�
 - **間隔**: 既定は3時間（日本域0.125°が3時間毎）。全球（`japan`/`okinawa`/`asia`）は6時間毎のFTだけ、日本域（`japan3`/`okinawa3`）は3時間毎。
 - **比較**: 他モデルと同じ画面で、初期値が違っても予報有効時刻を合わせて比較できる（画用紙版の「モデル違い」）。
 - **公開しない仕組み（4重）**: ①`nwp_data.MODELS` の `local_only`。②`publish.py` は GSM の指定を拒否（`--model gsm` も `--pull` も）。③公開用 manifest（`public_only`）と `build_site.py` が GSM と GSM専用地域を除外。④CIの対象モデル一覧に入れていない。
+- **自動取得（launchd）**: 00/12UTC 初期値だけを自動で取得・作図する（06/18UTC は手動）。`launchd/com.masahiro.nwp_chart_web_gsm.plist`（`~/Library/LaunchAgents/` に登録済み）が1時間おきに `update_latest.py --models gsm --init-hours 0 12 --keep-days 3` を実行する。揃っていなければ何もせず、作成済みなら数秒で終わる。ログは `logs/gsm_auto.log`。
+  - **所要時間（実測 2026-11-04, 00UTC 初回）**: 実時間 13分42秒（作図4並列・取得6並列）。GRIB2 589MB・PNG 851枚/128MB。1日2回で約27分。
+  - **保管**: `--keep-days 3` で、初期値が3日より古い PNG（`output/gsm/`）と GRIB2（`data/gsm/`）を削除する。3日分（00/12のみ6初期値）で約4.3GB。削除前は `--dry-run` で対象を確認できる。
+  - 止める/再開: `launchctl unload|load ~/Library/LaunchAgents/com.masahiro.nwp_chart_web_gsm.plist`。
 - ローカルの「最新を取得」ボタン（`update_latest.py`）は GSM も含めて4モデルを並行更新する。
 - 出典表示: 気象庁GSM（RISH配信）を加工したもので気象庁の公式な図ではない旨、ローカル専用でありデータの利用条件は配信元（RISH・気象庁）に従う旨を画面に出す。再配布・公開は配信元の条件を各自で確認すること。
 - `gsm_chart_web`（旧版）はそのまま残してある（後継はこの `nwp_chart_web`）。

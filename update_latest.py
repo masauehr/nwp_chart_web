@@ -25,7 +25,7 @@ import re
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import nwp_data
@@ -50,6 +50,8 @@ def parse_args():
     p.add_argument("--dl-jobs", type=int, default=4, help="ダウンロードの並列数")
     p.add_argument("--days-back", type=int, default=3)
     p.add_argument("--keep", type=int, default=0, help="各モデルで残す初期値の数。0(既定)なら削除しない")
+    p.add_argument("--init-hours", type=int, nargs="+", default=None, help="対象にする初期時刻（UTC）。例: 0 12。既定は全時刻")
+    p.add_argument("--keep-days", type=float, default=0, help="初期値がこの日数より古い PNG と GSM の GRIB2 を削除する。0(既定)なら削除しない")
     p.add_argument("--data-dir", default=str(nwp_data.DEFAULT_DATA_DIR))
     p.add_argument("--sequential", action="store_true", help="モデルを並行せず1つずつ処理する")
     p.add_argument("--dry-run", action="store_true")
@@ -110,6 +112,49 @@ def prune(model, keep):
         log(f"{model}: 古い初期値 {len(inits[keep:])} 件を整理（PNG {n} 枚）")
 
 
+def prune_days(models, keep_days, data_dir, dry_run=False):
+    """初期値が keep_days 日より古い PNG（出力）と GSM の GRIB2（取得データ）を削除する。
+
+    初期値はディレクトリ名・ファイル名の時刻（UTC）で判定する。この関数が消すのは
+    output/<モデル>/<初期値>/ 以下の PNG と、data/gsm/ の GSM ファイルだけ。
+    """
+    border = datetime.utcnow() - timedelta(days=keep_days)
+    def old(init_s):
+        return datetime.strptime(init_s, "%Y%m%d%H") < border
+    for model in models:
+        md = OUTPUT_DIR / model
+        if md.is_dir():
+            for d in sorted(md.iterdir()):
+                if d.is_dir() and re.fullmatch(r"\d{10}", d.name) and old(d.name):
+                    pngs = list(d.glob("*/*.png"))
+                    log(f"{model}: {d.name} を削除（PNG {len(pngs)} 枚）{' [dry-run]' if dry_run else ''}")
+                    if not dry_run:
+                        for f in pngs:
+                            f.unlink()
+                        for sub in list(d.iterdir()):
+                            if sub.is_dir():
+                                try:
+                                    sub.rmdir()
+                                except OSError:
+                                    pass
+                        try:
+                            d.rmdir()
+                        except OSError:
+                            pass
+    if "gsm" in models:
+        gd = Path(data_dir) / "gsm"
+        files = [f for f in gd.glob("Z__C_RJTD_*_GSM_GPV_*.bin")] if gd.is_dir() else []
+        n = 0
+        for f in files:
+            m = re.match(r"Z__C_RJTD_(\d{10})\d{4}_GSM_GPV_", f.name)  # 初期時刻 YYYYMMDDHH + 分秒
+            if m and old(m.group(1)):
+                n += 1
+                if not dry_run:
+                    f.unlink()
+        if n:
+            log(f"gsm: 古い GRIB2 {n} ファイルを削除{' [dry-run]' if dry_run else ''}")
+
+
 def main():
     a = parse_args()
     if not a.dry_run and not acquire_lock():
@@ -120,7 +165,7 @@ def main():
         todo = []  # (model, init_s)
         for model in a.models:
             iv = a.interval or nwp_data.default_interval(model)  # GSMは3時間毎（日本域0.125°）、他は6
-            init = nwp_data.find_latest_complete(model, a.max_ft, iv, a.days_back)
+            init = nwp_data.find_latest_complete(model, a.max_ft, iv, a.days_back, a.init_hours)
             if init is None:
                 log(f"{model}: FT{a.max_ft}hまで揃った初期値が見つかりません")
                 continue
@@ -149,6 +194,8 @@ def main():
         if a.keep > 0 and not a.dry_run:
             for model in a.models:
                 prune(model, a.keep)
+        if a.keep_days > 0:
+            prune_days(a.models, a.keep_days, a.data_dir, a.dry_run)
         if not a.dry_run:  # 常にmanifestを最新化
             subprocess.run([sys.executable, str(ROOT / "make_charts.py"), "--manifest-only"], cwd=ROOT)
     finally:
