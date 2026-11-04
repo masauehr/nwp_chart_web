@@ -19,6 +19,10 @@ python server.py                 # → http://127.0.0.1:8790/  （画用紙版�
 GitHub Actions で定期的に作図し GitHub Pages へ公開する構成（`.github/workflows/update.yml`）。
 **まだ公開していない**（public リポジトリ化と Pages 有効化が必要）。手順は [PUBLISH.md](PUBLISH.md)。
 
+## 追加予定
+
+- **ECMWF AIFS（AI予報モデル）の追加を予定**（未実装）。IFS・GFS との比較ができるようにする。詳細は [DESIGN.md](DESIGN.md) の「追加予定: ECMWF AIFS」。
+
 ## 図種・地域
 
 - 図種: 地上（降水）/ 地上（天気・SSI）/ 500hPa 高度・渦度 / 500hPa 気温・湿数 / 300 / 850 / 700 / 925 / 975hPa（GFSのみ）/ 850hPa EPT・SSI

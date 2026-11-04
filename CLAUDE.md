@@ -13,6 +13,9 @@ ECMWF オープンデータと NOAA GFS（0.25°）から気象庁ビューア�
 - 図種は `nwp_charts.py` の `CHARTS`、地域は `REGIONS`。モデルは `nwp_data.py` の `MODELS`。追加したら README・マニュアル・pc_docs も更新。
 - `data/`（取得GRIB2の一時置き場）、`output/`、`_site/` はgit除外。
 
+## 今後の予定
+- **ECMWF AIFS（`aifs-single`）を3つ目のモデルとして追加予定**（調査結果と実装方針は DESIGN.md）。AIFSには相対湿度 `r` が無いので比湿 `q` から計算する。出典表記は規約確認後に `legal_text()` へ。
+
 ## 落とし穴
 - 取得は **索引(.index/.idx)のバイト範囲だけ**。全体（ECMWF約100MB・GFS約540MB/ステップ）を取らない。
 - 最新の初期値は「FT72hまで揃っているもの」だけ採る（公開途中を避ける）。ECMWF 06/18UTC は90hまで。
