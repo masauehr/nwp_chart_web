@@ -3,7 +3,9 @@
 詳しくは [nwp-chart-web.md](nwp-chart-web.md) を参照。公開サーバーの方式・手順は [PUBLISH.md](PUBLISH.md)、設計・調査結果は [DESIGN.md](DESIGN.md)。
 
 ECMWF（IFS）・ECMWF AIFS（AI予報モデル）・NOAA GFS（いずれも 0.25°）、およびローカル専用で気象庁GSM から、気象庁ビューア風の天気図PNGを作り、ブラウザで閲覧する。
-`gsm_chart_web`（GSM版）と同じ機能を、3モデルで・公開サーバーに置ける形で作ったもの。
+[gsm_chart_web](https://github.com/masauehr/gsm_chart_web)（GSM版・旧版）と同じ機能を、複数モデルで・公開サーバーに置ける形で作ったものです。
+
+> **関連リポジトリ**: [gsm_chart_web](https://github.com/masauehr/gsm_chart_web) は GSM（気象庁）だけを扱う**旧版（ローカル専用・調査用）**です。こちら（nwp_chart_web）が**後継**で、GSM もローカル専用モデルとして含み、ECMWF・GFS・AIFS と比較できます。GSM だけを単独で動かしたい場合は旧版も使えます（ポートが違うので同時に起動できます）。
 
 ## モデルを比較する
 
@@ -65,7 +67,7 @@ cd ~/projects/nwp_chart_web
 
 - 1) は FT0〜72h で、モデルごとに数十分かかります（ECMWF/AIFS は約20MB、GFS は約38MB、GSM はファイル全体のため約600MB を取得）。まず試すだけなら FT を絞れます: `python update_latest.py --max-ft 12`
 - 特定のモデルだけ作る場合: `python update_latest.py --models gfs aifs`
-- **GSM を含めて比較したい場合**: GSM は気象庁データ（京大RISH配信）で**ローカル専用**です（公開サイトには載りません）。`update_latest.py` に含まれます。旧版 `gsm_chart_web` で取得済みのデータがあれば、再取得せずに使えます:
+- **GSM を含めて比較したい場合**: GSM は気象庁データ（京大RISH配信）で**ローカル専用**です（公開サイトには載りません）。`update_latest.py` に含まれます。旧版 [gsm_chart_web](https://github.com/masauehr/gsm_chart_web) で取得済みのデータがあれば、再取得せずに使えます:
   ```bash
   /opt/anaconda3/envs/met_env_310/bin/python make_charts.py gsm 2026110312 --data-dir ../gsm_chart_web/data/gsm
   ```
@@ -99,7 +101,7 @@ kill $(lsof -ti :8790)                                                          
 | 画像が古い・初期値が増えない | 「最新を取得」を押す。配信元に新しい初期値がまだ無い場合は作られない |
 
 - サーバーは `127.0.0.1`（自分のPCだけ）で待ち受けます。**他の端末・インターネットには公開されません。** 「最新を取得」ボタンもローカルからだけ使えます。
-- 旧版 `gsm_chart_web`（GSM のみ、ポート 8780）とは**ポートが違うので同時に起動できます**。
+- 旧版 [gsm_chart_web](https://github.com/masauehr/gsm_chart_web)（GSM のみ、ポート 8780）とは**ポートが違うので同時に起動できます**。
 - 公開サイト（GitHub Pages）にはローカルのデータは影響しません。公開側は GitHub Actions が別に更新します（下記）。
 
 ## 公開サイト（Web）
