@@ -12,7 +12,7 @@
 使用例:
   python publish.py --web-only                 # 画面ファイルだけを反映（画像・manifestは触らない）
   python publish.py --model gfs                # output/gfs の最新2初期値と画面ファイルを反映し、manifestを再生成
-  python publish.py --model gfs --keep 3       # 残す初期値の数を変える
+  python publish.py --model gfs --keep 3       # 残す初期値の数を変える（既定は nwp_data.MODELS の publish_keep と publish_hours）
   python publish.py --pull --model gfs         # 公開済みの output/gfs を手元の output/ へ取り込む（作成済み判定のため）
   python publish.py --web-only --dry-run       # 何をするかだけ表示（pushしない）
   python publish.py ? / -? / --?               # ヘルプ
@@ -52,7 +52,7 @@ def parse_args():
     p.add_argument("--model", help="反映するモデル（ecmwf / gfs / aifs）。--pull では取り込むモデル")
     p.add_argument("--web-only", action="store_true", help="画面ファイル(web/)だけを反映する（画像は作らない・触らない）")
     p.add_argument("--pull", action="store_true", help="公開済みの output/{model} を手元の output/ へ取り込む")
-    p.add_argument("--keep", type=int, default=2, help="公開する初期値の数（モデルごと。既定: 2）")
+    p.add_argument("--keep", type=int, default=None, help="公開する初期値の数（モデルごと。既定: nwp_data.MODELS の publish_keep）")
     p.add_argument("--remote", default="origin", help="公開先のリモート名（既定: origin）")
     p.add_argument("--branch", default="gh-pages", help="公開ブランチ（既定: gh-pages）")
     p.add_argument("--dry-run", action="store_true", help="pushせず、変更の有無だけ表示")
@@ -133,9 +133,12 @@ def sync_web(wt: Path):
     (wt / ".nojekyll").write_text("")  # GitHub Pages でJekyll処理を無効化
 
 
-def newest_inits(model_dir: Path, keep: int):
-    return sorted([d.name for d in model_dir.iterdir() if d.is_dir() and re.fullmatch(r"\d{10}", d.name)],
-                  reverse=True)[:keep]
+def newest_inits(model_dir: Path, keep: int, hours=None):
+    """新しい順に keep 個。hours（初期時刻UTCの集合）を指定すると、その時刻の初期値だけを数える。"""
+    names = [d.name for d in model_dir.iterdir() if d.is_dir() and re.fullmatch(r"\d{10}", d.name)]
+    if hours:
+        names = [n for n in names if int(n[-2:]) in hours]
+    return sorted(names, reverse=True)[:keep]
 
 
 def sync_model(wt: Path, model: str, keep: int):
@@ -143,7 +146,9 @@ def sync_model(wt: Path, model: str, keep: int):
     src = ROOT / "output" / model
     if not src.is_dir():
         raise RuntimeError(f"output/{model} がありません（先に作図してください）")
-    inits = newest_inits(src, keep)
+    import nwp_data
+    cfg = nwp_data.MODELS.get(model, {})
+    inits = newest_inits(src, keep or cfg.get("publish_keep", 2), cfg.get("publish_hours"))
     if not inits:
         raise RuntimeError(f"output/{model} に初期値のディレクトリがありません")
     dst = wt / "output" / model

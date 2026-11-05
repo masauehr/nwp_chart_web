@@ -50,7 +50,7 @@ def parse_args():
     p.add_argument("--dl-jobs", type=int, default=4, help="ダウンロードの並列数")
     p.add_argument("--days-back", type=int, default=3)
     p.add_argument("--keep", type=int, default=0, help="各モデルで残す初期値の数。0(既定)なら削除しない")
-    p.add_argument("--init-hours", type=int, nargs="+", default=None, help="対象にする初期時刻（UTC）。例: 0 12。既定は全時刻")
+    p.add_argument("--init-hours", type=int, nargs="+", default=None, help="対象にする初期時刻（UTC）。例: 0 6 12 18。既定はモデルごとの公開時刻（nwp_data.MODELS の publish_hours）")
     p.add_argument("--keep-days", type=float, default=0, help="初期値がこの日数より古い PNG と GSM の GRIB2 を削除する。0(既定)なら削除しない")
     p.add_argument("--data-dir", default=str(nwp_data.DEFAULT_DATA_DIR))
     p.add_argument("--sequential", action="store_true", help="モデルを並行せず1つずつ処理する")
@@ -165,7 +165,8 @@ def main():
         todo = []  # (model, init_s)
         for model in a.models:
             iv = a.interval or nwp_data.default_interval(model)  # GSMは3時間毎（日本域0.125°）、他は6
-            init = nwp_data.find_latest_complete(model, a.max_ft, iv, a.days_back, a.init_hours)
+            init = nwp_data.find_latest_complete(
+                model, a.max_ft, iv, a.days_back, a.init_hours or nwp_data.MODELS[model].get("publish_hours"))
             if init is None:
                 log(f"{model}: FT{a.max_ft}hまで揃った初期値が見つかりません")
                 continue
