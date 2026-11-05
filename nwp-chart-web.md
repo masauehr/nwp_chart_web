@@ -119,3 +119,10 @@ GitHub Pages の配信元は **gh-pages ブランチ**（画像と画面ファ�
 - **ハッチ（湿数）表示の不具合を修正**: 湿数（T−Td）が飽和付近で `-1e-6` 程度の微小な負値になると、`contourf` のハッチが崩れて地図全面が湿り扱いに（または逆転）して見えていた。`_chart_tdep`（850/925/975/500hPa）で湿数を0以上に切り上げて対処。**この修正前に作った画像（全モデルの湿数図）は表示が誤っている可能性があるので、再作図が必要**（データ自体は正常）。
 - **再作成・公開（2026-11-04）**: 湿数ハッチ修正後、`update_latest.py --force` で4モデルの最新初期値（ECMWF 11/4 00UTC・GFS 11/4 06UTC・AIFS 11/4 00UTC・GSM 11/4 00UTC）を作り直し、`publish.py --model {ecmwf,gfs,aifs}` で gh-pages へ反映した（GSMは公開しない）。**古い初期値（ECMWF 11/3 12・18UTC、GFS 11/3 12UTC・11/4 00UTC、AIFS 11/3 12UTC 等）は修正前のまま**で、公開サイトにも各モデル2番目の初期値として残っている（湿数図の湿り表示が不正確）。古い初期値は新しい初期値に押し出されるか `--keep` で整理すれば消える。
 - **cartopy 0.26 対応（2026-11-05）**: GitHub Actions（依存は最新版: matplotlib 3.11.2・cartopy 0.26）で作った図で、700hPa の OMG（上昇流）などが**全面ハッチ**になる不具合（例: ECMWF 06UTC 初期値 FT12h）。原因は cartopy 0.26 の `contourf(transform=PC)` が帯の領域を地図全面に広げて描くこと（手元の cartopy 0.25 では再現しない。データは正常）。等値線・ハッチ・塗りの12か所を、座標を自前で投影してから描く方式（`View.xy()`）に変更。両バージョンで正しい描画を確認。**修正前にCIが作った画像（ECMWF 11/4 06UTC 以降の初期値など）は誤っている**ため、CIの再作成か手元での再作成・公開が必要。
+
+## 取得時刻の実測（check_availability.py、2026-11-05）
+GitHub Actions の取得時刻（cron）を推測でなく実測で決めるため、**各初期値が「いつ揃うか」を記録**する。
+- `check_availability.py`: ECMWF・GFS・AIFS の直近の初期値について、FT0・24・48・72h の配信を HEAD 要求だけで確認（データは取らない。1回約2分）し、**最初に確認できた時刻**を `logs/availability.csv` に追記する。初回に揃い済みのものは基準として覚えるだけで記録しない。
+- 定期実行は launchd（`launchd/com.masahiro.nwp_chart_web_availability.plist`、10分おき）。**登録はユーザーが行う**: `cp launchd/com.masahiro.nwp_chart_web_availability.plist ~/Library/LaunchAgents/ && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.masahiro.nwp_chart_web_availability.plist`（止める: `launchctl bootout gui/$(id -u)/com.masahiro.nwp_chart_web_availability`）。
+- 集計: `python check_availability.py --report`（初期値ごとの揃った時刻、モデル×初期時刻の経過時間の中央値・最大）。
+- 注意: Mac がスリープ中は確認できない（復帰後の時刻が記録され、遅れが大きく出る。csv の「検出間隔[分]」が大きい行は精度が低い）。数日分たまったら、cron を実測に合わせて決める（案: 揃う時刻の直後に1〜2回＋保険）。

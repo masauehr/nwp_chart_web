@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- ECMWF・GFS・AIFS の初期値が「いつ揃うか」の実測。10分おきに配信状況を確認（HEAD要求のみ、データは取らない）し、
+       最初に確認できた時刻を logs/availability.csv に記録する。集計: python check_availability.py --report
+       登録: cp このファイル ~/Library/LaunchAgents/ && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.masahiro.nwp_chart_web_availability.plist
+       止める: launchctl bootout gui/$(id -u)/com.masahiro.nwp_chart_web_availability -->
+  <key>Label</key><string>com.masahiro.nwp_chart_web_availability</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/anaconda3/envs/met_env_310/bin/python</string>
+    <string>/Users/masahiro/projects/nwp_chart_web/check_availability.py</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/masahiro/projects/nwp_chart_web</string>
+  <key>StartInterval</key><integer>600</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/Users/masahiro/projects/nwp_chart_web/logs/availability.log</string>
+  <key>StandardErrorPath</key><string>/Users/masahiro/projects/nwp_chart_web/logs/availability.log</string>
+</dict>
+</plist>

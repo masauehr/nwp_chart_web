@@ -19,6 +19,9 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - GSM は launchd（`launchd/*.plist`、`~/Library/LaunchAgents/`）で 00/12UTC のみ自動取得。`--init-hours 0 12 --keep-days 3` で3日より古い PNG/GRIB2 を削除（実測 初回13分42秒）。
 - `gsm_source.py` は `gsm_chart_web/gsm_data.py` のコピー（共通部品化しない）。
 
+## 取得時刻の実測
+- `check_availability.py`（10分おき・launchd、登録はユーザーが行う）が各初期値の配信時刻を `logs/availability.csv` に記録。`--report` で集計。cron を決める根拠にする。
+
 ## 公開の仕組み（gh-pages ブランチ方式）
 - 配信元は gh-pages ブランチ。`publish.py` が必要な部分だけ入れ替えて単一の孤立コミットで push する（`--web-only` は画像に触れない／`--model M` はそのモデルだけ）。
 - 画面だけ直したら `web/**` を push すれば `deploy-web.yml` が画像なしで反映する（全量の作図をしない）。
