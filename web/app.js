@@ -35,6 +35,11 @@
   const modelInits = (model) => ((S.manifest.models[model] || {}).inits) || [];   // 新しい順
   const inits = () => modelInits(S.model);
   const cur = () => inits().find((i) => i.init === S.init);
+  // manifest の更新時刻をUTCだけで短く表す（例: 11/6 03:06UTC）
+  const updatedUtc = (iso) => {
+    const t = new Date(iso);
+    return `${t.getUTCMonth() + 1}/${t.getUTCDate()} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}UTC`;
+  };
   const labelOf = (m) => (S.manifest.models[m] || {}).label || m;
   // 比較に使うモデル（比較オフなら左だけ）
   const shownModels = () => (S.cmp && S.model2 ? [S.model, S.model2] : [S.model]);
@@ -108,7 +113,7 @@
       $("views").innerHTML = '<div style="padding:40px">天気図がまだありません。<code>python update_latest.py</code> を実行してください。</div>';
       return;
     }
-    $("updated").textContent = "マニフェスト更新: " + new Date(m.updated).toLocaleString("ja-JP");
+    $("updated").textContent = "更新 " + updatedUtc(m.updated);
 
     const h = loadHash();
     const models = modelKeys();
@@ -198,7 +203,7 @@
       const o = document.createElement("option");
       const d = parseInit(i.init);
       o.value = i.init;
-      o.textContent = `${fmt(d, 0, "UTC")} 初期値`;
+      o.textContent = fmt(d, 0, "UTC");
       sel.appendChild(o);
     }
     sel.value = S.init;
@@ -400,7 +405,7 @@
     const newest = inits()[0].init;
     if (newest !== prevNewest || !inits().some((i) => i.init === S.init)) S.init = newest; // 新しい初期値が増えたら切り替える
     buildModelSel(); applyCmpUi(); keepValid(); buildInitSel(); buildRegionBtns(); buildTabs(); update(); buildCredit();
-    $("updated").textContent = "マニフェスト更新: " + new Date(m.updated).toLocaleString("ja-JP");
+    $("updated").textContent = "更新 " + updatedUtc(m.updated);
   }
 
   async function pollUpdate() {
