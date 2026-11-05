@@ -324,7 +324,7 @@
   function refreshLabel() {
     const d = parseInit(S.init);
     const other = visible().filter((it) => { const e = els[it.id]; return e && e.cur && e.cur.other; }).length;
-    $("dateLabel").textContent = `${fmt(d, S.ft, "UTC")} (${fmt(d, S.ft + 9, "JST")}) ｜ 初期値 ${pad(d.getUTCHours())}UTC ＋${S.ft}h`
+    $("dateLabel").textContent = `${fmt(d, S.ft, "UTC")} ｜ 初期値 ${pad(d.getUTCHours())}UTC ＋${S.ft}h`
       + (other ? ` ｜ ${other}図は別の初期値（予報時刻を合わせて表示）` : "");
   }
 
