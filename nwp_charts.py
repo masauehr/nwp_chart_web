@@ -267,9 +267,10 @@ def extrema(ax, V, a, kind, win, color="k", fs=11, dec=0):
                 fontsize=fs - 3, color=color, zorder=8)
 
 
-def legend_box(ax, boxes, labels, center=False):
-    """右下の凡例。boxes=[(facecolor, hatch, hatchcolor)...]、labels は境界値の文字列（len(boxes)+1）。"""
-    ia = ax.inset_axes([0.724, 0.008, 0.272, 0.078], transform=ax.transAxes, zorder=20)
+def legend_box(ax, boxes, labels, center=False, rect=(0.724, 0.008, 0.272, 0.078)):
+    """右下の凡例。boxes=[(facecolor, hatch, hatchcolor)...]、labels は境界値の文字列（len(boxes)+1）。
+    rect: 凡例の位置 [x, y, 幅, 高さ]（軸座標）。2つ並べるときは左側の凡例をずらす。"""
+    ia = ax.inset_axes(list(rect), transform=ax.transAxes, zorder=20)
     ia.set_xlim(0, 1)
     ia.set_ylim(0, 1)
     ia.set_xticks([])
@@ -375,8 +376,8 @@ def chart_jet300(ax, V, F, ctx):
                ["60", "80", "100", "120", "140", "160", "180", "200", ""])
 
 
-def _chart_tdep(ax, V, F, ctx, lv):
-    """850/925hPa: 気温・湿数・風"""
+def _chart_tdep(ax, V, F, ctx, lv, tstep=3):
+    """850/925hPa: 気温・湿数・風。tstep: 気温の等値線の間隔[℃]"""
     d = F["p"][lv]
     V.set_level(F, lv)
     ttd = np.maximum(d["t"] - dewpoint(d["t"], d["r"]), 0.0)  # 飽和付近の-1e-6程度の負値を0に（等値線の穴を防ぐ）
@@ -385,8 +386,9 @@ def _chart_tdep(ax, V, F, ctx, lv):
     hatch(ax, V, ttd, [3, 6], ["////"], "#8a8a8a")
     ax.contour(*V.xy(ax), V.fine(ttd), levels=[3], colors=BL, linewidths=0.8,
                linestyles="--", zorder=3)
-    lines(ax, V, d["t"], np.arange(-60, 45, 3), major=None, color="red", lw=1.1,
-          ls="--", label_levels=list(range(-60, 45, 3)), fmt="%d", fs=8)
+    tl = list(range(-60, 46, tstep))
+    lines(ax, V, d["t"], tl, major=None, color="red", lw=1.1,
+          ls="--", label_levels=tl, fmt="%d", fs=8)
     barbs(ax, V, d["u"], d["v"], "red")
     ctx["title"] = f"TTD{lv},T{lv},Wind{lv}"
     legend_box(ax, [("white", "\\\\\\\\\\\\", BL), ("white", "\\\\\\\\", BL),
@@ -395,11 +397,11 @@ def _chart_tdep(ax, V, F, ctx, lv):
 
 
 def chart_t850(ax, V, F, ctx):
-    _chart_tdep(ax, V, F, ctx, 850)
+    _chart_tdep(ax, V, F, ctx, 850, tstep=2)
 
 
 def chart_t925(ax, V, F, ctx):
-    _chart_tdep(ax, V, F, ctx, 925)
+    _chart_tdep(ax, V, F, ctx, 925, tstep=2)
 
 
 def chart_t975(ax, V, F, ctx):
@@ -414,8 +416,10 @@ def chart_t700(ax, V, F, ctx):
     d = F["p"][700]
     V.set_level(F, 700)
     RD = "#e03030"
+    ttd = np.maximum(d["t"] - dewpoint(d["t"], d["r"]), 0.0)
+    GR1, GR2 = "#6fcf6f", "#bfe9bf"                       # 湿数 0〜1.5℃ / 1.5〜3℃ の緑
+    fill(ax, V, ttd, [-0.1, 1.5, 3], [GR1, GR2])
     hatch(ax, V, d["w"], [-1000, -70, -30, -10], ["OO", "oo", ".."], RD)
-    ttd = d["t"] - dewpoint(d["t"], d["r"])
     ax.contour(*V.xy(ax), V.fine(ttd), levels=[3], colors="#3a6fd8", linewidths=0.8,
                linestyles="--", zorder=3)
     lines(ax, V, d["t"], np.arange(-40, 30, 3), color="red", lw=1.1,
@@ -424,6 +428,8 @@ def chart_t700(ax, V, F, ctx):
     ctx["title"] = "TTD700,OMG,T700,Wind700"
     legend_box(ax, [("white", "OO", RD), ("white", "oo", RD), ("white", "..", RD)],
                ["", "-70", "-30", "-10"])
+    legend_box(ax, [(GR1, None, None), (GR2, None, None)], ["0", "1.5", "3"],
+               rect=(0.46, 0.008, 0.25, 0.078))          # 湿数（TTD）の凡例を、上昇流の凡例の左隣に
 
 
 def chart_ept850(ax, V, F, ctx):

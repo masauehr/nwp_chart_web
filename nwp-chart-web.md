@@ -126,3 +126,8 @@ GitHub Actions の取得時刻（cron）を推測でなく実測で決めるた�
 - 定期実行は launchd（`launchd/com.masahiro.nwp_chart_web_availability.plist`、10分おき）。**登録はユーザーが行う**: `cp launchd/com.masahiro.nwp_chart_web_availability.plist ~/Library/LaunchAgents/ && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.masahiro.nwp_chart_web_availability.plist`（止める: `launchctl bootout gui/$(id -u)/com.masahiro.nwp_chart_web_availability`）。
 - 集計: `python check_availability.py --report`（初期値ごとの揃った時刻、モデル×初期時刻の経過時間の中央値・最大）。
 - 注意: Mac がスリープ中は確認できない（復帰後の時刻が記録され、遅れが大きく出る。csv の「検出間隔[分]」が大きい行は精度が低い）。数日分たまったら、cron を実測に合わせて決める（案: 揃う時刻の直後に1〜2回＋保険）。
+
+## 700hPa の湿数塗り・850/925hPa の気温等値線（2026-11-05）
+- **700hPa（上昇流・気温・湿数）**: 湿数の表示が破線（3℃）1本だけで薄かったため、**湿数 0〜1.5℃を濃い緑・1.5〜3℃を薄い緑で塗る**ようにした（上昇流の赤ハッチ・破線はそのまま）。凡例は上昇流の凡例の左隣に湿数用を追加。850hPa などは斜線ハッチ（0〜1.5・1.5〜3℃が青、3〜6℃が灰）で、閾値は同じ（1.5・3℃）。700hPa は赤いハッチと重なって読みにくいため、斜線でなく塗りつぶしにした。
+- **850/925hPa の気温の等値線**: 3℃おき → **2℃おき**（975・500hPa は3℃のまま。`_chart_tdep` の `tstep`）。
+- 既存の画像は作り直さない限り変わらない（次の初期値から反映）。
