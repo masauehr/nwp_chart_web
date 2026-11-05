@@ -136,3 +136,10 @@ GitHub Actions の取得時刻（cron）を推測でなく実測で決めるた�
 - **ECMWF: 00/12/18UTC の最新6初期値、GFS・AIFS: 00/12UTC の最新4初期値**（06UTC は公開しない）。1初期値は約53〜75MB で、合計約0.9GB（Pages 1GB 目安以内。8初期値や全モデル6初期値は約1.2〜1.6GBで超過）。
 - 設定は `nwp_data.MODELS` の `publish_hours` / `publish_keep`。`publish.py` は時刻で絞って keep 個を公開、`update_latest.py` は既定でその時刻の初期値だけを作る（`--init-hours 0 6 12 18` で上書き）。cron は変更なし。
 - 公開側は CI が1回に1初期値ずつ追加するため、約2日かけて目標の個数に達する。**手元で `publish.py --model M` を実行する場合、手元の output/ に不完全な古い初期値（一部の図種だけ等）があるとそれも公開されるので、先に `--pull` するか不完全な初期値を除くこと。**
+
+## 公開分のローカル取り込み（2026-11-06）
+- 背景: GitHub Actions が作った新しい初期値は公開側（gh-pages）にしか無く、ローカル版（`server.py`）に出なかった。
+- `sync_public.py`: 公開ブランチの先頭コミットが前回と同じなら何もせず、違えば ECMWF / GFS / AIFS を `publish.py --pull` 相当で取り込み、`manifest.json` を更新（GSM には触れない）。`--force` で強制。状態は `logs/sync_state.json`。
+- **画面のボタン「公開分を同期」**（通常版・画用紙版）: `POST /api/sync`（ローカルのみ）で上記を実行。「最新を取得」（RISH等から手元で作図）とは別。タブに戻ったとき、manifest が更新されていれば自動で読み直す。
+- **自動**: `launchd/com.masahiro.nwp_chart_web_sync.plist`（30分おき、ログ `logs/sync.log`）。登録は `cp` → `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/…`（止める: `launchctl bootout gui/$(id -u)/com.masahiro.nwp_chart_web_sync`）。
+- 注意: 取り込みは追記のみで、手元の古い初期値は消さない（ディスクが増える場合は手動で整理）。

@@ -148,3 +148,7 @@ kill $(lsof -ti :8790)                                                          
 - ECMWF（IFS・AIFS）: ECMWF Open Data（CC BY 4.0）。Contains ECMWF open data.
 - NOAA/NCEP GFS（NOMADS / AWS Open Data）。
 - 気象庁 GSM（京都大学生存圏研究所 RISH 配信）— ローカル専用。データは含めず、利用条件は配信元で確認すること。
+
+
+## 公開分をローカルへ取り込む
+CI が作った画像は公開側にしか無いので、`python sync_public.py` か画面の「公開分を同期」ボタンで手元へ取り込む（launchd 雛形 `launchd/com.masahiro.nwp_chart_web_sync.plist` で30分おきの自動実行も可）。

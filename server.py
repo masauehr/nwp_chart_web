@@ -5,6 +5,7 @@
   /          → web/ の静的ファイル
   /output/   → output/（make_charts.py が作成したPNGとmanifest.json）
   POST /api/update  → 最新データを取得して作図（update_latest.py を裏で実行。ローカルからのみ）
+  POST /api/sync    → 公開サイトで作られた画像を手元へ取り込む（sync_public.py を裏で実行。ローカルからのみ）
   GET  /api/status  → 更新ジョブの状態とログ末尾
 
 使用例:
@@ -29,8 +30,8 @@ _job = {"proc": None, "started": None, "rc": None}
 _job_lock = threading.Lock()
 
 
-def start_update():
-    """update_latest.py を裏で起動する。実行中なら起動せず False。"""
+def start_update(script="update_latest.py", args=("--jobs", "3")):
+    """update_latest.py（または sync_public.py）を裏で起動する。実行中なら起動せず False。"""
     with _job_lock:
         p = _job["proc"]
         if p is not None and p.poll() is None:
@@ -38,7 +39,7 @@ def start_update():
         LOG_FILE.parent.mkdir(exist_ok=True)
         f = open(LOG_FILE, "w", encoding="utf-8")  # 毎回上書き（最新の1回分だけ見せる）
         _job["proc"] = subprocess.Popen(
-            [sys.executable, "-u", str(ROOT / "update_latest.py"), "--jobs", "3"],
+            [sys.executable, "-u", str(ROOT / script), *args],
             cwd=ROOT, stdout=f, stderr=subprocess.STDOUT)
         _job["started"] = __import__("time").time()
         _job["rc"] = None
@@ -94,7 +95,8 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
-        if self.path.split("?", 1)[0] != "/api/update":
+        path = self.path.split("?", 1)[0]
+        if path not in ("/api/update", "/api/sync"):
             self._json(404, {"error": "not found"})
             return
         if not self._local_only():
@@ -104,7 +106,7 @@ class Handler(SimpleHTTPRequestHandler):
         if origin and origin.split("://", 1)[-1] != self.headers.get("Host"):
             self._json(403, {"error": "不正なOriginです"})
             return
-        started = start_update()
+        started = start_update("sync_public.py", ()) if path == "/api/sync" else start_update()
         self._json(200, {"started": started, **job_status()})
 
     def end_headers(self):
