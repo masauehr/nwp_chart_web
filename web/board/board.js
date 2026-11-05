@@ -657,12 +657,13 @@
     const last = (j.log && j.log.length) ? j.log[j.log.length - 1] : "";
     if (j.running) {
       $("btnUpdate").disabled = true; $("btnSync").disabled = true;
-      $("updateMsg").textContent = "更新中… " + last;
+      $("updateMsg").textContent = "更新中…"; $("updateMsg").title = last;
       setTimeout(pollUpdate, 3000);
     } else {
       $("btnUpdate").disabled = false; $("btnSync").disabled = false;
       if (j.rc === null || j.rc === undefined) { $("updateMsg").textContent = ""; return; }
-      $("updateMsg").textContent = j.rc === 0 ? "更新完了" : "更新に失敗（logs/update_ui.log）";
+      $("updateMsg").title = last;
+      $("updateMsg").textContent = j.rc !== 0 ? "失敗（ログ確認）" : /変更はありません/.test(last) ? "変更なし" : "更新完了";
       if (j.rc === 0) reloadManifest();
     }
   }
