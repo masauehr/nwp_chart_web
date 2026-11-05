@@ -37,8 +37,8 @@ DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "data"
 MODELS = {
     # publish_hours / publish_keep: 公開する初期時刻（UTC）と残す個数（公開サイトは1GB以内が目安。約2日分）
     "ecmwf": dict(label="ECMWF", publish_hours=(0, 12, 18), publish_keep=6),
-    "gfs": dict(label="NOAA GFS", publish_hours=(0, 12), publish_keep=4),
-    "aifs": dict(label="ECMWF_AIFS", publish_hours=(0, 12), publish_keep=4),
+    "gfs": dict(label="GFS", publish_hours=(0, 12), publish_keep=4),
+    "aifs": dict(label="AIFS", publish_hours=(0, 12), publish_keep=4),
     # 気象庁GSM（京大RISH配信）。**ローカル専用**: 公開サイト（gh-pages）には載せない。publish.py と CI の対象から除外する
     "gsm": dict(label="JMA GSM", local_only=True),
 }

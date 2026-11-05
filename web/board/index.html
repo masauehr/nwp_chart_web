@@ -15,9 +15,11 @@
     <label>初期値 <select id="initSel"></select></label>
     <label title="既定では全ての図がこの範囲に揃います。図ごとに変える場合は各図の範囲欄で選びます">表示範囲(全体) <select id="regionSel"></select></label>
     <button id="btnUpdate" title="RISHから最新データを取得して作図します">最新を取得</button>
-  <button id="btnSync" title="公開サイトで作られた最新の画像を、手元へ取り込みます（GFS・AIFS・ECMWF）">同期</button>
+    <button id="btnSync" title="公開サイトで作られた最新の画像を、手元へ取り込みます（GFS・AIFS・ECMWF）">同期</button>
     <span id="updateMsg"></span>
     <a href="../" title="通常版ビューア">通常版</a>
+    <button id="btnHelp" title="操作説明 (H)">使い方</button>
+    <button id="btnLegal" title="データの出典・ライセンス・免責・改変の表示">出典・免責</button>
   </div>
   <!-- 2段目: 表示する図・配置・登録 -->
   <div class="row">
@@ -33,8 +35,6 @@
     <input id="presetName" type="text" placeholder="登録名" maxlength="30" size="10">
     <button id="btnPresetSave" title="今の配置（図・表示範囲・位置・大きさ）を登録">登録</button>
     <button id="btnPresetDel" title="選択中の登録を削除">削除</button>
-    <button id="btnHelp" title="操作説明 (H)">使い方</button>
-    <button id="btnLegal" title="データの出典・ライセンス・免責・改変の表示">出典・免責</button>
   </div>
 </div>
 
