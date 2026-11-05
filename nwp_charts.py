@@ -417,19 +417,19 @@ def chart_t700(ax, V, F, ctx):
     V.set_level(F, 700)
     RD = "#e03030"
     ttd = np.maximum(d["t"] - dewpoint(d["t"], d["r"]), 0.0)
-    GR1, GR2 = "#6fcf6f", "#bfe9bf"                       # 湿数 0〜1.5℃ / 1.5〜3℃ の緑
-    fill(ax, V, ttd, [-0.1, 1.5, 3], [GR1, GR2])
+    # 湿数の塗り（気象庁の天気図に倣う）: 湿り=緑（0〜1/1〜3℃）、3〜15℃は塗らず、乾燥=黄〜橙（15〜25/25〜35/35℃以上）
+    TC = ["#2fa02f", "#a8e0a8", "white", "#fff3a0", "#ffc94a", "#f0a020"]
+    TL = [-0.1, 1, 3, 15, 25, 35, 200]
+    fill(ax, V, ttd, TL, TC)
     hatch(ax, V, d["w"], [-1000, -70, -30, -10], ["OO", "oo", ".."], RD)
-    ax.contour(*V.xy(ax), V.fine(ttd), levels=[3], colors="#3a6fd8", linewidths=0.8,
-               linestyles="--", zorder=3)
-    lines(ax, V, d["t"], np.arange(-40, 30, 3), color="red", lw=1.1,
-          label_levels=list(range(-30, 30, 3)), fmt="%d", fs=8)
+    lines(ax, V, d["t"], np.arange(-40, 30, 2), color="red", lw=1.1,
+          label_levels=list(range(-30, 30, 2)), fmt="%d", fs=8)
     barbs(ax, V, d["u"], d["v"], "red")
     ctx["title"] = "TTD700,OMG,T700,Wind700"
     legend_box(ax, [("white", "OO", RD), ("white", "oo", RD), ("white", "..", RD)],
                ["", "-70", "-30", "-10"])
-    legend_box(ax, [(GR1, None, None), (GR2, None, None)], ["0", "1.5", "3"],
-               rect=(0.46, 0.008, 0.25, 0.078))          # 湿数（TTD）の凡例を、上昇流の凡例の左隣に
+    legend_box(ax, [(c, None, None) for c in TC], ["0", "1", "3", "15", "25", "35"],
+               rect=(0.40, 0.008, 0.31, 0.078))          # 湿数（TTD）の凡例を、上昇流の凡例の左隣に
 
 
 def chart_ept850(ax, V, F, ctx):
