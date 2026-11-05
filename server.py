@@ -121,7 +121,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    p = argparse.ArgumentParser(description="ECMWF/GFS天気図ビューアのサーバー")
+    p = argparse.ArgumentParser(description="数値モデル天気図ビューアのサーバー")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8790)
     if any(a in sys.argv[1:] for a in ("?", "-?", "--?")):

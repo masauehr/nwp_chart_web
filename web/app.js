@@ -1,4 +1,4 @@
-// ECMWF/GFS/AIFS/GSM 天気図ビューア（Vanilla JS）
+// 数値モデル天気図ビューア（ECMWF/GFS/AIFS/GSM）（Vanilla JS）
 // 画像規則: output/{model}/{init}/{region}/{chart}_{ft:03d}.png、一覧は output/manifest.json
 // パスは相対指定（GitHub Pages のようにサブパス配下へ置いても動く）。更新API(api/)があるのはローカルサーバーだけ。
 //

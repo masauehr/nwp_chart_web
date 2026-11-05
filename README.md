@@ -1,4 +1,4 @@
-# nwp_chart_web — ECMWF / GFS / AIFS / GSM 天気図ビューア（公開サーバー対応）
+# nwp_chart_web — 数値モデル天気図ビューア（ECMWF / GFS / AIFS / GSM。公開サーバー対応）
 
 詳しくは [nwp-chart-web.md](nwp-chart-web.md) を参照。公開サーバーの方式・手順は [PUBLISH.md](PUBLISH.md)、設計・調査結果は [DESIGN.md](DESIGN.md)。
 
