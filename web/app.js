@@ -298,8 +298,8 @@
 
     const d = parseInit(S.init);
     $("timeInfo").innerHTML = S.cmp
-      ? `予報有効時刻 <b>${fmt(d, S.ft, "UTC")}</b>（${fmt(d, S.ft + 9, "JST")}） ／ 左のモデルの初期値 ${fmt(d, 0, "UTC")} ＋${S.ft}h`
-      : `初期値 ${fmt(d, 0, "UTC")} ／ <b>FT=${S.ft}h</b> ／ 予報時刻 <b>${fmt(d, S.ft, "UTC")}</b>（${fmt(d, S.ft + 9, "JST")}）`;
+      ? `予報有効時刻 <b>${fmt(d, S.ft, "UTC")}</b> ／ 左のモデルの初期値 ${fmt(d, 0, "UTC")} ＋${S.ft}h`
+      : `初期値 ${fmt(d, 0, "UTC")} ／ <b>FT=${S.ft}h</b> ／ 予報時刻 <b>${fmt(d, S.ft, "UTC")}</b>`;
     applySize();                                  // timeInfo の行数で画像の開始位置が変わるため、収まる高さを再計算
 
     buildThumbs();
