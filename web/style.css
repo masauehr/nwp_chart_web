@@ -19,6 +19,10 @@ main { max-width:1000px; margin:0 auto; padding:10px 16px 24px; }
 #views { display:grid; grid-template-columns:1fr; gap:10px; }
 .viewbox { position:relative; background:#fff; border:1px solid var(--line); }
 .viewbox img { display:block; width:100%; height:auto; aspect-ratio:950/760; background:#fff; }
+/* 画像の表示サイズ（#sizeSel）。fit=画面の高さに収める（--avail は app.js が計算）、数値=幅の割合[%]、wide=幅いっぱい */
+#views.size-fit .viewbox { display:flex; justify-content:center; }
+#views.size-fit .viewbox img { width:auto; max-width:100%; max-height:var(--avail, 70vh); }
+#views.size-pct .viewbox img { width:var(--imgw, 100%); margin:0 auto; }
 .nodata[hidden] { display:none; }
 .nodata { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:12px; text-align:center; background:#fff; color:#778; }
 /* 2モデル比較: 左右に並べる（狭い画面では縦に積む） */

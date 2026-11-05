@@ -300,6 +300,7 @@
     $("timeInfo").innerHTML = S.cmp
       ? `予報有効時刻 <b>${fmt(d, S.ft, "UTC")}</b>（${fmt(d, S.ft + 9, "JST")}） ／ 左のモデルの初期値 ${fmt(d, 0, "UTC")} ＋${S.ft}h`
       : `初期値 ${fmt(d, 0, "UTC")} ／ <b>FT=${S.ft}h</b> ／ 予報時刻 <b>${fmt(d, S.ft, "UTC")}</b>（${fmt(d, S.ft + 9, "JST")}）`;
+    applySize();                                  // timeInfo の行数で画像の開始位置が変わるため、収まる高さを再計算
 
     buildThumbs();
     preload();
@@ -373,6 +374,24 @@
   $("btnLast").onclick = () => setIndex(fts().length - 1);
   $("btnPlay").onclick = play;
   $("ftSlider").oninput = (e) => setIndex(+e.target.value);
+  // ---------- 画像の表示サイズ（画面に収める／幅いっぱい／割合）
+  // fit: 画像の上端から画面の下端までに収める。ヘッダーの折り返し数で位置が変わるので、都度計算する
+  function applySize() {
+    const v = $("sizeSel").value, views = $("views");
+    views.classList.toggle("size-fit", v === "fit");
+    views.classList.toggle("size-pct", v !== "fit");
+    if (v === "fit") {
+      const top = views.getBoundingClientRect().top + window.scrollY;   // ページ先頭からの位置
+      views.style.setProperty("--avail", Math.max(240, window.innerHeight - top - 16) + "px");
+    } else {
+      views.style.setProperty("--imgw", v === "wide" ? "100%" : v + "%");
+    }
+  }
+  try { const sv = localStorage.getItem("nwp_size"); if (sv && [...$("sizeSel").options].some((o) => o.value === sv)) $("sizeSel").value = sv; } catch (e) { /* 保存できない環境は既定のまま */ }
+  $("sizeSel").onchange = () => { try { localStorage.setItem("nwp_size", $("sizeSel").value); } catch (e) { /* 無視 */ } applySize(); };
+  window.addEventListener("resize", applySize);
+  applySize();
+
   $("speedSel").onchange = () => { if (S.timer) { play(); play(); } };
   $("cmpChk").onchange = (e) => setCmp(e.target.checked);
   $("btnSwap").onclick = swapModels;
