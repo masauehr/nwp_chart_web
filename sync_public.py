@@ -15,6 +15,7 @@
 import argparse
 import json
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -38,7 +39,13 @@ def main():
     ap.add_argument("--remote", default="origin")
     ap.add_argument("--branch", default="gh-pages")
     a = ap.parse_args()
-    tip = publish.fetch_tip(a.remote, a.branch)
+    tip = None
+    for k in range(4):  # スリープ復帰直後はネットワークが未接続のことがあるため、20秒おきに最大4回試す
+        tip = publish.fetch_tip(a.remote, a.branch)
+        if tip is not None:
+            break
+        if k < 3:
+            time.sleep(20)
     if tip is None:
         log("公開ブランチを取得できません（ネットワークを確認）")
         return 1
