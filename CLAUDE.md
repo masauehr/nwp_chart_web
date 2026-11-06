@@ -24,7 +24,7 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - `check_availability.py`（10分おき・launchd、登録はユーザーが行う）が各初期値の配信時刻を `logs/availability.csv` に記録。`--report` で集計。cron を決める根拠にする。
 
 ## 公開分のローカル取り込み
-- CIが作った初期値は手元に無いので、`sync_public.py`（画面の「公開分を同期」ボタン／launchd 30分おき `launchd/com.masahiro.nwp_chart_web_sync.plist`）で取り込む。GSMには触れない。取り込みは追記のみ。
+- CIが作った初期値は手元に無いので、`sync_public.py`（画面の「公開分を同期」ボタン／launchd 30分おき `launchd/com.masahiro.nwp_chart_web_sync.plist`）で取り込む。GSMには触れない。取り込みのたびに、初期時刻が3日より古い手元の初期値（ECMWF/GFS/AIFS）を自動削除する（`--keep-days`、確認は `--prune-only --dry-run`）。
 
 ## 公開の仕組み（gh-pages ブランチ方式）
 - 配信元は gh-pages ブランチ。`publish.py` が必要な部分だけ入れ替えて単一の孤立コミットで push する（`--web-only` は画像に触れない／`--model M` はそのモデルだけ）。
