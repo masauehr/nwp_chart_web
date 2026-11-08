@@ -309,14 +309,35 @@
 
   function buildThumbs() {
     const box = $("thumbs");
-    box.innerHTML = "";
     const regs = (cur() || {}).regions || {};
     const charts = regs[S.region] || {};
-    for (const c of Object.keys(charts)) {
-      if (!charts[c].includes(S.ft)) continue;
+    const list = Object.keys(charts).filter((c) => charts[c].includes(S.ft));
+    // 図の構成（モデル・初期値・範囲・図種の並び）が同じなら、要素は作り直さず画像だけ差し替える
+    const key = [S.model, S.init, S.region, list.join(",")].join("|");
+    if (box.dataset.key === key) {
+      if (S.timer) return;                                   // 再生中は下の小さな画像を動かさない（ちらつき防止）
+      box.querySelectorAll("figure").forEach((fig) => {
+        const c = fig.dataset.chart;
+        fig.className = c === S.chart ? "on" : "";
+        const img = fig.querySelector("img");
+        const u = imgUrl(S.model, S.init, S.region, c, S.ft);
+        if (img.dataset.want === u) return;
+        img.dataset.want = u;
+        // 読み込み完了後に差し替える（読み込み中は前の画像を残し、空白を出さない）
+        const pre = new Image();
+        pre.onload = () => { if (img.dataset.want === u) img.src = u; };
+        pre.src = u;
+      });
+      return;
+    }
+    box.dataset.key = key;
+    box.innerHTML = "";
+    for (const c of list) {
       const fig = document.createElement("figure");
       fig.className = c === S.chart ? "on" : "";
-      fig.innerHTML = `<img loading="lazy" src="${imgUrl(S.model, S.init, S.region, c, S.ft)}" alt=""><figcaption>${S.manifest.charts[c] || c}</figcaption>`;
+      fig.dataset.chart = c;
+      const u = imgUrl(S.model, S.init, S.region, c, S.ft);
+      fig.innerHTML = `<img loading="lazy" src="${u}" data-want="${u}" alt=""><figcaption>${S.manifest.charts[c] || c}</figcaption>`;
       fig.onclick = () => { S.chart = c; update(); buildTabs(); };
       box.appendChild(fig);
     }
@@ -345,7 +366,7 @@
   }
   function setIndex(i) { const f = fts(); if (f.length) { S.ft = f[Math.min(Math.max(i, 0), f.length - 1)]; update(); } }
   function play() {
-    if (S.timer) { clearInterval(S.timer); S.timer = null; $("btnPlay").textContent = "再生"; return; }
+    if (S.timer) { clearInterval(S.timer); S.timer = null; $("btnPlay").textContent = "再生"; buildThumbs(); return; }   // 停止時に下の画像を現在の時刻へ更新
     $("btnPlay").textContent = "停止";
     S.timer = setInterval(() => step(1), +$("speedSel").value);
   }
