@@ -72,6 +72,8 @@ python make_charts.py ?                     # ヘルプ
 | `server.py` | ローカルサーバー（`/`=web/、`/output/`、更新API）。既定ポート8790 |
 | `web/` | 通常版 / `web/board/` 画用紙版（相対パスなので静的サイトのサブパスでも動く） |
 | `.github/workflows/update-model.yml` | GitHub Actions: **モデルごとに別ジョブで並行**して作図→公開ブランチへ反映（cron 1日8回／手動でモデル指定可） |
+| `CRON_JOB_ORG.md` | cron-job.org から `update-model` を起動する設定（各時の :30/:55・1日16回）、トークン期限（2027-02-08）、更新手順、Slack期限通知 |
+| `ops/token_expiry_notify.py` / `launchd/com.masahiro.nwp_chart_web_token_notify.plist` | トークン期限の14日前から Slack DM で通知（毎日9:05。`tests/test_token_expiry_notify.py` 11件） |
 | `.github/workflows/deploy-web.yml` | `web/**` を直して push すると、**画像を作らず**画面ファイルだけを数十秒で反映 |
 | `output/{モデル}/{初期値}/{地域}/{図種}_{FT3桁}.png` | 作成画像（git除外）。`output/manifest.json` が一覧 |
 
