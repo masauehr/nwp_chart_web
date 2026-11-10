@@ -47,6 +47,7 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - gh-pages を直接編集しない（`publish.py` 経由）。ローカル検証は空の bare リポジトリを `--remote` に指定。
 
 ## 落とし穴
+- **公開サイトの容量（Pages 1GB・サイト＝リポジトリ単位）は約0.88GBでほぼ上限**。図種・地域・公開個数を増やす前に見積もる（`gh api repos/masauehr/nwp_chart_web --jq .size`）。方針と選択肢は PUBLISH.md の「容量の制約と対応方針」。WebPは効果が小さく見送り。
 - 取得は **索引(.index/.idx)のバイト範囲だけ**。全体（ECMWF約100MB・GFS約540MB/ステップ）を取らない。
 - 最新の初期値は「FT72hまで揃っているもの」だけ採る（公開途中を避ける）。ECMWF 06/18UTC は90hまで。
 - ECMWFの降水は積算[m]なので前ステップとの差分、GFSは窓付き積算（APCP）で最短窓を採る。
