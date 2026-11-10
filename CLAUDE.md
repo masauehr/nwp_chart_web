@@ -32,6 +32,7 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - CIが作った初期値は手元に無いので、`sync_public.py`（画面の「公開分を同期」ボタン／launchd 30分おき `launchd/com.masahiro.nwp_chart_web_sync.plist`）で取り込む。GSMには触れない。取り込みのたびに、初期時刻が3日より古い手元の初期値（ECMWF/GFS/AIFS）を自動削除する（`--keep-days`、確認は `--prune-only --dry-run`）。
 
 ## 公開の仕組み（gh-pages ブランチ方式）
+- **図種の並びは高層→地上**。`nwp_charts.CHARTS` の定義順と、`web/app.js` の `CHART_ORDER`、`web/board/board.js` の `ORDER` に同じ順を持つ（公開側の manifest は次の `update-model` まで古い順のままなので、画面側でも並べる）。図種を足すときは3か所に入れる。
 - 配信元は gh-pages ブランチ。`publish.py` が必要な部分だけ入れ替えて単一の孤立コミットで push する（`--web-only` は画像に触れない／`--model M` はそのモデルだけ）。
 - 画面だけ直したら `web/**` を push すれば `deploy-web.yml` が画像なしで反映する（全量の作図をしない）。
 - モデルは `update-model.yml` の matrix で別ジョブ並行。`make_charts.py` は取得と作図を重ねる（全取得完了を待たない）。
