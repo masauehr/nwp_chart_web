@@ -87,7 +87,7 @@
 <dialog id="pastDlg">
   <h2>過去の初期値の取得（ローカルのみ）</h2>
   <p class="note" id="pastNoteGsm">京大RISHのGSMアーカイブから、過去の初期値を取得して作図します。手動で取得した初期値は<strong>自動では削除されません</strong>（容量は 72時間で約0.6GB）。不要になったら、下の一覧から削除してください。</p>
-  <p class="note" id="pastNoteJra" hidden>JRA-55（気象庁の再解析・1.25°・1958〜2023年）を京大RISHから取得して作図します。<strong>解析値のみ（予報時間0）</strong>・6時間毎・アジア域と日本域のみ。雲量・降水が無いので、天気図は作らず、地上図は気圧と風だけです。必要な時刻・気圧面だけを読むので、1日分で約30MB・約2〜3分です。</p>
+  <p class="note" id="pastNoteJra" hidden>JRA-55（気象庁の再解析・1.25°・1958〜2023年）を京大RISHから取得して作図します。<strong>指定した時刻から○日分（6時間毎）を1つの系列</strong>として取得し、画面の「初期値」＝開始時刻、予報時間のスライダー（再生も可）＝開始からの経過時間として動かせます。アジア域と日本域のみ。雲量・降水が無いので、天気図は作らず、地上図は気圧と風だけです。必要な時刻・気圧面だけを読むので、1日分で約30MB・約2〜3分（日数が増えるほど時間と容量が増えます）。</p>
   <div class="pastRow">
     <label>モデル <select id="pastModel"><option value="gsm">JMA GSM</option><option value="jra55">JRA-55（再解析）</option></select></label>
     <label>日付（UTC） <input type="date" id="pastDate"></label>
@@ -97,7 +97,7 @@
     <button id="pastGo">取得して作図</button>
   </div>
   <div id="pastMsg" class="note"></div>
-  <table id="pastTbl"><thead><tr><th>初期値（UTC）</th><th id="pastHead">GRIB2</th><th>画像</th><th id="pastHeadMan">手動</th><th>削除</th></tr></thead><tbody></tbody></table>
+  <table id="pastTbl"><thead><tr><th id="pastInitHead">初期値（UTC）</th><th id="pastHead">GRIB2</th><th>画像</th><th id="pastHeadMan">手動</th><th>削除</th></tr></thead><tbody></tbody></table>
   <p id="pastTotal" class="note"></p>
   <div class="pastRow"><button id="pastClose">閉じる</button></div>
 </dialog>

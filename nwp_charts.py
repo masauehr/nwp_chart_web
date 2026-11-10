@@ -569,7 +569,7 @@ def render_chart(chart, region, F, init, ft, outpath, model="", quantize=True):
             family="serif", color="red", va="top", ha="right", zorder=30)
     ax.text(0.985, 0.915, "JST", transform=ax.transAxes, fontsize=9, family="serif",
             color="red", va="top", ha="right", zorder=30)
-    stamp = f"ANAL:{init:%Y/%m/%d %H:%M}" if F.get("no_cloud") else f"INIT:{init:%m/%d %H:%M}"   # 解析値(JRA-55)は年も出す（昔の日付のため）
+    stamp = f"ANAL:{valid:%Y/%m/%d %H:%M}" if F.get("no_cloud") else f"INIT:{init:%m/%d %H:%M}"   # 解析値(JRA-55)は解析時刻を年つきで出す（昔の日付のため）
     ax.text(0.006, 0.012, f"{model} {stamp}(UTC)".strip(), transform=ax.transAxes, fontsize=10,
             color="k", va="bottom", zorder=30)
 

@@ -110,6 +110,37 @@ class TestLoad(unittest.TestCase):
         self.assertTrue(js.have("1959092618", self.d))
 
 
+class TestSeries(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_list_and_delete_series(self):
+        for start, n in (("1959092600", 3), ("1959092700", 1)):
+            d = js.series_dir(start, self.root)
+            d.mkdir()
+            for k in range(n):
+                fake_npz(d / f"{js.times_from(start, 1)[k]}.npz")
+        rows = js.list_series(self.root)
+        self.assertEqual([(r["series"], r["frames"]) for r in rows], [("1959092700", 1), ("1959092600", 3)])
+        self.assertEqual(js.delete_series("1959092600", self.root), 3)
+        self.assertFalse(js.series_dir("1959092600", self.root).exists())       # 空になったフォルダも消える
+        self.assertEqual(js.delete_series("1959092600", self.root), 0)
+        with self.assertRaises(ValueError):
+            js.delete_series("../x", self.root)
+
+    def test_migrate_flat(self):
+        fake_npz(self.root / "1959092612.npz")                    # 旧形式
+        fake_npz(self.root / "1959092618.npz")
+        self.assertEqual(js.migrate_flat(self.root), 2)
+        self.assertTrue((self.root / "1959092612" / "1959092612.npz").exists())
+        self.assertEqual(js.migrate_flat(self.root), 0)           # 2回目は何もしない
+        self.assertEqual([r["series"] for r in js.list_series(self.root)], ["1959092618", "1959092612"])
+
+
 class TestRegistry(unittest.TestCase):
     def test_model(self):
         m = nwp_data.MODELS["jra55"]
@@ -144,8 +175,13 @@ class Base(unittest.TestCase):
         js.DATA, past_jra55.OUTPUT, past_jra55.refresh_manifest = self._o
         self.tmp.cleanup()
 
-    def make(self, valid, png=3):
-        fake_npz(self.data / f"{valid}.npz")
+    def make(self, valid, png=3, frames=1):
+        """系列（開始時刻=valid）のキャッシュを frames コマ分と、画像 png 枚を作る。"""
+        sd = self.data / valid
+        sd.mkdir(parents=True, exist_ok=True)
+        for k in range(frames):
+            t = js.times_from(valid, 1)[k]
+            fake_npz(sd / f"{t}.npz")
         d = self.out / valid / "asia"
         d.mkdir(parents=True, exist_ok=True)
         for i in range(png):
@@ -154,17 +190,17 @@ class Base(unittest.TestCase):
 
 class TestPast(Base):
     def test_list_rows(self):
-        self.make("1959092612")
+        self.make("1959092612", frames=4)
         self.make("1959092618", png=0)
         rows = past_jra55.list_rows()
         self.assertEqual([r["init"] for r in rows], ["1959092618", "1959092612"])
         r = {x["init"]: x for x in rows}["1959092612"]
-        self.assertEqual((r["png_count"], r["has_data"]), (3, True))
+        self.assertEqual((r["png_count"], r["has_data"], r["frames"]), (3, True, 4))
         self.assertFalse({x["init"]: x for x in rows}["1959092618"]["png_count"])
 
     def test_delete_data_only_then_all(self):
-        self.make("1959092612")
-        self.assertEqual(past_jra55.delete("1959092612"), {"data": 1, "png": 0})
+        self.make("1959092612", frames=2)
+        self.assertEqual(past_jra55.delete("1959092612"), {"data": 2, "png": 0})
         self.assertTrue((self.out / "1959092612" / "asia" / "surf_000.png").exists())     # 画像は残る
         self.assertEqual(self.refreshed, [])
         self.assertEqual(past_jra55.delete("1959092612", with_png=True), {"data": 0, "png": 3})
@@ -173,7 +209,7 @@ class TestPast(Base):
 
     def test_fetch_rejects_bad_days_and_time(self):
         with self.assertRaises(ValueError):
-            past_jra55.fetch("1959092612", days=4)
+            past_jra55.fetch("1959092612", days=4)       # 選択肢にない日数
         with self.assertRaises(ValueError):
             past_jra55.fetch("1959092613", days=1)
 
@@ -208,7 +244,7 @@ class TestServerApi(Base):
         code, j = self.call("/api/past/list")
         self.assertEqual(code, 200)
         self.assertEqual(j["jra55"][0]["init"], "1959092612")
-        self.assertEqual(j["days_choices"], [1, 2, 3, 5])
+        self.assertEqual(j["days_choices"], [1, 2, 3, 5, 7, 10])
 
     def test_fetch_starts_job(self):
         code, j = self.call("/api/past/fetch", {"model": "jra55", "init": "1959092612", "days": 2})

@@ -14,7 +14,9 @@
   同じ5日ブロック（月ファイルの時間チャンク=20時刻）に含まれる時刻は、まとめて読むとほぼ追加コストなしで取れる。
   JRA55_RAW_DIR に月ファイルのコピー（tenkizu の data/Jra55 と同じ構成）があれば、そちらを優先して読む（読み取りのみ・削除しない）。
 
-「初期値」は有効時刻（解析値）。予報時間は 0 のみ。作れない図: 雲量・降水を使う「地上（天気）」。降水は無い（地上図は気圧・風のみ）。
+**系列**: 開始時刻から N 日分（6時間毎）を1つの系列として取得し、「初期値」＝開始時刻・「予報時間」＝開始からの経過時間（FT=0,6,12,…）として扱う
+（予報モデルと同じ形なので、画面の予報時間スライダーで時間の推移を動かせる。キャッシュは data/jra55/<開始時刻>/YYYYMMDDHH.npz）。
+作れない図: 雲量・降水を使う「地上（天気）」。降水は無い（地上図は気圧・風のみ）。
 
 標準ライブラリ以外（numpy・xarray・netCDF4）は、使うときに読み込む。
 """
@@ -73,7 +75,12 @@ def times_from(start_s, days):
 
 
 def cache_path(valid_s, data_dir=None):
+    """時刻ごとのキャッシュ(npz)のパス。data_dir は系列のフォルダ（data/jra55/<開始時刻>/）。"""
     return Path(data_dir or DATA) / f"{valid_s}.npz"
+
+
+def series_dir(start_s, root=None):
+    return Path(root or DATA) / start_s
 
 
 def have(valid_s, data_dir=None):
@@ -227,3 +234,46 @@ def delete_cache(valid_s, data_dir=None):
         p.unlink()
         return 1
     return 0
+
+
+def list_series(root=None):
+    """系列（開始時刻）ごとの {series, frames, mb}（新しい順）。root は data/jra55/。"""
+    r = Path(root or DATA)
+    rows = []
+    if r.is_dir():
+        for d in r.iterdir():
+            if d.is_dir() and re.fullmatch(r"\d{10}", d.name):
+                fs = [f for f in d.glob("*.npz") if re.fullmatch(r"\d{10}", f.stem)]
+                if fs:
+                    rows.append({"series": d.name, "frames": len(fs), "mb": round(sum(f.stat().st_size for f in fs) / 1e6, 1)})
+    rows.sort(key=lambda x: x["series"], reverse=True)
+    return rows
+
+
+def delete_series(start_s, root=None):
+    """系列のキャッシュ(npz)をすべて削除する（ファイル単位。フォルダも空なら消す）。削除したファイル数を返す。"""
+    d = series_dir(valid_name(start_s), root)
+    n = 0
+    if d.is_dir():
+        for f in d.glob("*.npz"):
+            f.unlink()
+            n += 1
+        try:
+            d.rmdir()
+        except OSError:
+            pass
+    return n
+
+
+def migrate_flat(root=None):
+    """旧形式（data/jra55/YYYYMMDDHH.npz が直下に並ぶ）を、1時刻ごとの系列フォルダ data/jra55/<時刻>/<時刻>.npz へ移す。移した数を返す。"""
+    r = Path(root or DATA)
+    n = 0
+    if r.is_dir():
+        for f in list(r.glob("*.npz")):
+            if re.fullmatch(r"\d{10}", f.stem):
+                d = r / f.stem
+                d.mkdir(exist_ok=True)
+                f.rename(d / f.name)
+                n += 1
+    return n

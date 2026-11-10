@@ -41,6 +41,7 @@
     return `${t.getUTCMonth() + 1}/${t.getUTCDate()} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}UTC`;
   };
   const labelOf = (m) => (S.manifest.models[m] || {}).label || m;
+  const isAnal = (m) => !!(S.manifest.models[m] || {}).analysis;   // 再解析（JRA-55）: 初期値＝開始時刻、FT＝開始からの経過時間
   // 比較に使うモデル（比較オフなら左だけ）
   const shownModels = () => (S.cmp && S.model2 ? [S.model, S.model2] : [S.model]);
 
@@ -276,7 +277,7 @@
     if (!r) return `<b>${esc(labelOf(model))}</b> ｜ 画像なし`;
     const d = parseInit(r.init);
     const note = r.init !== S.init ? "（別の初期値・予報時刻を合わせて表示）" : (r.exact ? "" : `（FT${r.ft}h＝直前の予報時間）`);
-    return `<b>${esc(labelOf(model))}</b> ｜ 初期値 ${fmt(d, 0, "UTC")} ＋${r.ft}h${note}`;
+    return `<b>${esc(labelOf(model))}</b> ｜ ${isAnal(model) ? "解析 開始" : "初期値"} ${fmt(d, 0, "UTC")} ＋${r.ft}h${note}`;
   }
 
   function update() {
@@ -307,7 +308,9 @@
     const d = parseInit(S.init);
     $("timeInfo").innerHTML = S.cmp
       ? `予報有効時刻 <b>${fmt(d, S.ft, "UTC")}</b> ／ 左のモデルの初期値 ${fmt(d, 0, "UTC")} ＋${S.ft}h`
-      : `初期値 ${fmt(d, 0, "UTC")} ／ <b>FT=${S.ft}h</b> ／ 予報時刻 <b>${fmt(d, S.ft, "UTC")}</b>`;
+      : isAnal(S.model)
+        ? `解析 開始 ${fmt(d, 0, "UTC")} ／ <b>＋${S.ft}h</b> ／ 解析時刻 <b>${fmt(d, S.ft, "UTC")}</b>`
+        : `初期値 ${fmt(d, 0, "UTC")} ／ <b>FT=${S.ft}h</b> ／ 予報時刻 <b>${fmt(d, S.ft, "UTC")}</b>`;
     applySize();                                  // timeInfo の行数で画像の開始位置が変わるため、収まる高さを再計算
 
     buildThumbs();
@@ -526,14 +529,15 @@
     const jra = pastModel() === "jra55";
     // 行を共通の形にそろえる: {init, data(表示), has(データがあるか), png_count, png_mb, manual}
     const rows = jra
-      ? j.jra55.map((r) => ({ init: r.init, has: r.has_data, data: `${fmtGb(r.data_mb)}`, png_count: r.png_count, png_mb: r.png_mb, manual: true }))
+      ? j.jra55.map((r) => ({ init: r.init, frames: r.frames, has: r.has_data, data: `${fmtGb(r.data_mb)}`, png_count: r.png_count, png_mb: r.png_mb, manual: true }))
       : j.inits.map((r) => ({ init: r.init, has: r.grib_files > 0, data: `${r.grib_files}個 ${fmtGb(r.grib_mb)}`, png_count: r.png_count, png_mb: r.png_mb, manual: r.manual }));
     $("pastHead").textContent = jra ? "データ" : "GRIB2";
+    $("pastInitHead").textContent = jra ? "開始時刻（UTC）" : "初期値（UTC）";
     $("pastHeadMan").textContent = jra ? "" : "手動";
     pastRows.innerHTML = "";
     for (const r of rows) {
       const tr = pastRows.insertRow();
-      tr.insertCell().textContent = initLabel(r.init);
+      tr.insertCell().textContent = jra ? `${initLabel(r.init)} から${r.frames}コマ（＋${6 * (r.frames - 1)}h）` : initLabel(r.init);
       tr.insertCell().textContent = r.has ? r.data : "—";
       tr.insertCell().textContent = r.png_count ? `${r.png_count}枚 ${fmtGb(r.png_mb)}` : "—";
       tr.insertCell().textContent = !jra && r.manual ? "○" : "";

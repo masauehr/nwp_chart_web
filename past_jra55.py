@@ -2,18 +2,19 @@
 # coding: utf-8
 """JRA-55（ローカル専用）の過去の有効時刻を取得して作図する／取得済みの一覧・削除。past_gsm.py の JRA-55 版。
 
-JRA-55 は再解析（解析値）なので「初期値」は有効時刻で、予報時間は0のみ。6時間毎（00/06/12/18UTC）。
+JRA-55 は再解析（解析値）。開始時刻から N 日分（6時間毎）を1つの**系列**として取得し、「初期値」＝開始時刻・「予報時間」＝
+開始からの経過時間（FT=0,6,12,…）として表示する（画面の予報時間スライダーや再生で、時間の推移を動かせる）。
 取得は京大RISHの月ファイルから、必要な時刻・気圧面だけを範囲読み込みして、時刻ごとの小さなキャッシュ
-（data/jra55/YYYYMMDDHH.npz・約7MB）に保存する（詳細は jra55_source.py）。月ファイル（約1.4GB）は保存しない。
+（data/jra55/<開始時刻>/YYYYMMDDHH.npz・約3.7MB）に保存する（詳細は jra55_source.py）。月ファイル（約1.4GB）は保存しない。
 地域はアジア域と日本域のみ。キャッシュと画像は自動では削除されない（JRA-55は自動更新の対象外）。
 
 画面（通常版の「GSM過去分」ボタンのダイアログで、モデルを JRA-55 にする）からも同じことができる（server.py の /api/past/*）。
 
 使用例:
-  python past_jra55.py fetch 1959092612              # 1日分（4時刻）を取得して作図（約2〜3分）
-  python past_jra55.py fetch 1959092600 --days 3     # 3日分（12時刻）。同じ5日ブロックの時刻はほぼ追加コストなし
+  python past_jra55.py fetch 1959092612              # 1日分（4コマ）を取得して作図（約2〜3分）
+  python past_jra55.py fetch 1959092600 --days 5     # 5日分（20コマ）。同じ5日ブロックの時刻はほぼ追加コストなし
   python past_jra55.py list
-  python past_jra55.py delete 1959092612             # キャッシュ(npz)だけ削除（画像は残す）
+  python past_jra55.py delete 1959092612             # 系列のキャッシュ(npz)だけ削除（画像は残す）
   python past_jra55.py delete 1959092612 --png       # 画像も削除
   python past_jra55.py ? / -? / --?                  # ヘルプ
 """
@@ -27,19 +28,28 @@ import jra55_source
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / "output" / "jra55"       # 作図した PNG（テストでは差し替える）
-DAYS_CHOICES = (1, 2, 3, 5)              # 一度に取得する日数（6時間毎×4×日数）
+DAYS_CHOICES = (1, 2, 3, 5, 7, 10)        # 一度に取得する日数（6時間毎×4×日数。1系列＝開始時刻から N 日分）
+
+
+def _frames_from_png(d):
+    """作図済みの画像から、系列のコマ数（異なる FT の数）を数える。"""
+    return len({m.group(1) for f in d.glob("*/*.png") for m in [re.search(r"_(\d{3,})\.png$", f.name)] if m})
 
 
 def list_rows():
-    """有効時刻ごとの {init, has_data, data_mb, png_count, png_mb} を新しい順に返す（画面の一覧用。initは有効時刻）。"""
-    cached = {r["valid"]: r["mb"] for r in jra55_source.list_cached()}
+    """系列（開始時刻）ごとの {init, frames, has_data, data_mb, png_count, png_mb} を新しい順に返す（画面の一覧用）。"""
+    jra55_source.migrate_flat()                     # 旧形式（時刻ごとのフラットなキャッシュ）を系列フォルダへ移す
+    cached = {r["series"]: r for r in jra55_source.list_series()}
     names = set(cached)
     if OUTPUT.is_dir():
         names |= {d.name for d in OUTPUT.iterdir() if d.is_dir() and re.fullmatch(r"\d{10}", d.name)}
     rows = []
     for n in names:
-        pngs = list((OUTPUT / n).glob("*/*.png")) if (OUTPUT / n).is_dir() else []
-        rows.append({"init": n, "has_data": n in cached, "data_mb": cached.get(n, 0), "png_count": len(pngs),
+        d = OUTPUT / n
+        pngs = list(d.glob("*/*.png")) if d.is_dir() else []
+        c = cached.get(n)
+        rows.append({"init": n, "frames": c["frames"] if c else _frames_from_png(d), "has_data": c is not None,
+                     "data_mb": c["mb"] if c else 0, "png_count": len(pngs),
                      "png_mb": round(sum(f.stat().st_size for f in pngs) / 1e6, 1)})
     rows.sort(key=lambda r: r["init"], reverse=True)
     return rows
@@ -51,9 +61,9 @@ def refresh_manifest():
 
 
 def delete(valid_s, with_png=False, refresh=True):
-    """キャッシュ(npz)を削除する。with_png=True なら画像も削除する。{data, png} の削除数を返す。"""
+    """系列（開始時刻）のキャッシュ(npz)を削除する。with_png=True なら画像も削除する。{data, png} の削除数を返す。"""
     s = jra55_source.valid_name(valid_s)
-    n_data = jra55_source.delete_cache(s)
+    n_data = jra55_source.delete_series(s)
     n_png = 0
     d = OUTPUT / s
     if with_png and d.is_dir():
@@ -78,6 +88,7 @@ def delete(valid_s, with_png=False, refresh=True):
 def fetch(valid_s, days=1, jobs=3):
     """有効時刻から days 日分を取得して作図する（make_charts.py jra55 を実行）。戻り値は終了コード。"""
     s = jra55_source.parse_valid(valid_s)
+    jra55_source.migrate_flat()
     if days not in DAYS_CHOICES:
         raise ValueError(f"日数は {'/'.join(map(str, DAYS_CHOICES))} のいずれかです")
     print(f"JRA-55 {s}（UTC）から {days} 日分を取得して作図します", flush=True)
@@ -92,10 +103,10 @@ def main():
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
     pf = sub.add_parser("fetch", help="有効時刻から取得して作図する")
-    pf.add_argument("init", help="有効時刻 YYYYMMDDHH（UTC。00/06/12/18時。1958〜2023年）")
+    pf.add_argument("init", help="開始時刻 YYYYMMDDHH（UTC。00/06/12/18時。1958〜2023年）")
     pf.add_argument("--days", type=int, default=1, choices=DAYS_CHOICES)
     sub.add_parser("list", help="取得済みの一覧")
-    pd = sub.add_parser("delete", help="有効時刻を指定して削除する")
+    pd = sub.add_parser("delete", help="系列（開始時刻）を指定して削除する")
     pd.add_argument("init")
     pd.add_argument("--png", action="store_true", help="画像も削除する（既定はキャッシュだけ）")
     if any(a in sys.argv[1:] for a in ("?", "-?", "--?")):
@@ -107,9 +118,9 @@ def main():
             return fetch(a.init, a.days)
         if a.cmd == "list":
             rows = list_rows()
-            print("有効時刻(UTC)  データ     画像")
+            print("開始時刻(UTC)  コマ  データ     画像")
             for r in rows:
-                print(f"{r['init']}   {r['data_mb']:>5}MB  {r['png_count']:>4}枚 {r['png_mb']:>6}MB")
+                print(f"{r['init']}  {r['frames']:>4}  {r['data_mb']:>5}MB  {r['png_count']:>4}枚 {r['png_mb']:>6}MB")
             print(f"合計 データ {round(sum(r['data_mb'] for r in rows), 1)}MB / 画像 {round(sum(r['png_mb'] for r in rows))}MB")
             return 0
         r = delete(a.init, with_png=a.png)

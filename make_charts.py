@@ -19,7 +19,7 @@ import json
 import re
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import nwp_data
@@ -74,7 +74,9 @@ def _render_ft(args):
     cache = {}  # データ系統（GSMの main/rjp）ごとに1回だけ読む
 
     if model == "jra55":
-        F0 = jra55_source.load(init_s)          # 有効時刻ごとのキャッシュ(npz)。init_s は有効時刻、FTは0のみ
+        # JRA-55 は系列: init_s=開始時刻、ft=開始からの経過時間[h]。解析時刻のキャッシュ(npz)を読む
+        valid_s = f"{init + timedelta(hours=ft):%Y%m%d%H}"
+        F0 = jra55_source.load(valid_s, jra55_source.series_dir(init_s))
         if F0 is None:
             return ft, 0, "データなし"
 
@@ -163,6 +165,8 @@ def write_manifest(output_dir=None, public_only=False):
             legal = nwp_data.legal_text(model, now.year, now.strftime("%Y-%m-%d"))
             models[model] = {"label": info["label"], "credit": legal["short"], "notice": legal["notice"],
                              "license_url": legal["license_url"], "inits": inits}
+            if info.get("analysis"):
+                models[model]["analysis"] = True        # 再解析（JRA-55）: 「初期値」＝開始時刻、FT＝開始からの経過時間（画面の文言を変える）
     manifest = {
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "disclaimer": ("本サイトの図は、上記の元データを加工して本アプリが作図したもので、各提供元（ECMWF・NOAA/NCEP・気象庁）の公式な図ではありません。"
@@ -189,15 +193,20 @@ def build_jra55(a):
     if not times:
         print("エラー: JRA-55 は有効時刻 YYYYMMDDHH（UTC・00/06/12/18時）を指定してください（--latest は使えません）", flush=True)
         return 2
+    start = times[0]
+    jra55_source.migrate_flat()
+    ddir = jra55_source.series_dir(start)
     if a.no_download:
-        ok = [t for t in times if jra55_source.have(t)]
+        ok = [t for t in times if jra55_source.have(t, ddir)]
     else:
-        ok = jra55_source.fetch(times, workers=max(1, a.dl_jobs), log=lambda m: print(m, flush=True))
+        ok = jra55_source.fetch(times, data_dir=ddir, workers=max(1, a.dl_jobs), log=lambda m: print(m, flush=True))
     if not ok:
         print("JRA-55: 取得できた時刻がありません", flush=True)
         return 1
-    print(f"jra55: 作図します（{len(ok)} 時刻）", flush=True)
-    tasks = [("jra55", t, 0, a.charts, a.regions, str(a.data_dir), 6, True) for t in ok]
+    print(f"jra55: 作図します（開始 {start}・{len(ok)} 時刻＝FT0〜{6 * (len(times) - 1)}h）", flush=True)
+    d0 = datetime.strptime(start, "%Y%m%d%H")
+    tasks = [("jra55", start, int((datetime.strptime(t, "%Y%m%d%H") - d0).total_seconds() // 3600),
+              a.charts, a.regions, str(a.data_dir), 6, True) for t in ok]
     results = []
     if a.jobs > 1:
         with ProcessPoolExecutor(max_workers=a.jobs) as ex:
