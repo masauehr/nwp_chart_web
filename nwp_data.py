@@ -36,7 +36,7 @@ DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "data"
 
 MODELS = {
     # publish_hours / publish_keep: 公開する初期時刻（UTC）と残す個数（公開サイトは1GB以内が目安。約2日分）
-    "ecmwf": dict(label="ECMWF", publish_hours=(0, 12, 18), publish_keep=6),
+    "ecmwf": dict(label="ECMWF", publish_hours=(0, 12, 18), publish_keep=5),   # 2026-11-10: 6→5（jet200・t300を足す分の容量確保）
     "gfs": dict(label="GFS", publish_hours=(0, 12), publish_keep=4),
     "aifs": dict(label="AIFS", publish_hours=(0, 12), publish_keep=4),
     # 気象庁GSM（京大RISH配信）。**ローカル専用**: 公開サイト（gh-pages）には載せない。publish.py と CI の対象から除外する
@@ -120,7 +120,7 @@ def legal_text(model: str, year: int, accessed: str) -> dict:
 ECM_BASE = "https://data.ecmwf.int/forecasts"
 GFS_BASE = "https://noaa-gfs-bdp-pds.s3.amazonaws.com"
 
-PLEVELS = (975, 925, 850, 700, 500, 300)  # 存在する面だけが使われる（ECMWFオープンデータに975は無い）
+PLEVELS = (975, 925, 850, 700, 500, 300, 200)  # 存在する面だけが使われる（ECMWFオープンデータに975は無い）。200hPaはjet200用
 
 # 読み込み時に切り出す範囲（全地域の bbox の和集合に余白を足したもの）。全球のまま処理すると遅い
 CROP = dict(lon0=50.0, lon1=185.0, lat0=-15.0, lat1=82.0)

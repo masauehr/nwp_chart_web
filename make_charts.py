@@ -101,6 +101,8 @@ def _render_ft(args):
         out = OUTPUT_DIR / model / init_s / region
         out.mkdir(parents=True, exist_ok=True)
         for chart in charts:
+            if region not in nwp_charts.CHARTS[chart].get("regions", (region,)):
+                continue  # 図種ごとに作る地域を限っている（容量のため。jet200・t300はアジア域のみ）
             if any(lv not in F["p"] for lv in nwp_charts.CHARTS[chart].get("levels", [])):
                 continue  # このモデルに無い気圧面（ECMWF/AIFS/GSM全球の975hPa）はスキップ
             try:

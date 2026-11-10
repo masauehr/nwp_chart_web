@@ -49,7 +49,7 @@ GitHub Pages の配信元を **gh-pages ブランチ**にし、画像と画面�
 - **画面だけの修正**: `web/**` を push → `deploy-web.yml` が画像を作らず画面ファイルだけを反映（数十秒）。
 - **データの更新**: `update-model.yml`（GitHub の cron は1日8回 UTC 1:30/4:30/7:30/9:30/18:30/20:30/22:30/23:30。schedule は遅れるため、同じ時の :30 と :55 に cron-job.org からも `workflow_dispatch` で起動＝1日16回。手動実行も可。設定・トークン期限は [CRON_JOB_ORG.md](CRON_JOB_ORG.md)）が**モデルごとに別ジョブで並行**して作図し、できたモデルから公開。各ジョブ内も、全取得完了を待たず取得できたステップから作図する。
 - 公開ブランチは**単一の孤立コミット**（履歴を積まない）。新しい画像だけが送られ、変わらない画像は再送されない。同時に公開して衝突したら取り直す。
-- 公開するのは約2日分（2026-11-05 変更）: **ECMWF は 00/12/18UTC の最新6初期値（約400MB）、GFS・AIFS は 00/12UTC の最新4初期値（各約300MB・約210MB）**。合計約0.9GB（Pagesの目安1GB以内）。06UTC は公開しない。設定は `nwp_data.MODELS` の `publish_hours` / `publish_keep`（`publish.py` と `update_latest.py` が参照。`--keep`・`--init-hours` で上書き可）。初期値が違うモデル同士を予報有効時刻で比較するため。1初期値の容量は ECMWF 約67MB・GFS 約75MB・AIFS 約53MB。
+- 公開するのは約2日分（2026-11-05 変更）: **ECMWF は 00/12/18UTC の最新5初期値（2026-11-10 に6→5へ変更。jet200・t300 の分の容量確保）、GFS・AIFS は 00/12UTC の最新4初期値**。合計約0.95〜1.0GB（Pagesの目安1GB。ぎりぎりなので増やさない）。06UTC は公開しない。設定は `nwp_data.MODELS` の `publish_hours` / `publish_keep`（`publish.py` と `update_latest.py` が参照。`--keep`・`--init-hours` で上書き可）。初期値が違うモデル同士を予報有効時刻で比較するため。1初期値の容量は ECMWF 約69MB（＋jet200・t300 のアジア域 約5.5MB）・GFS 約78MB（＋約5.7MB）・AIFS 約56MB（＋約5.0MB）。
 
 ### 初回の切り替え手順（旧方式 = Actions配信 から移行）
 1. 新しいワークフローを push する。

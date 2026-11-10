@@ -17,12 +17,12 @@
   const pad = (n) => String(n).padStart(2, "0");
 
   // 並び順（高層→地上）。整列すると左上が最も高い高度、右下が地上(surf)になる。未知の図は末尾
-  const ORDER = ["jet300", "z500", "t500", "t700", "ept850", "t850", "t975", "t925", "tenki", "surf"];
+  const ORDER = ["jet200", "jet300", "t300", "z500", "t500", "t700", "ept850", "t850", "t975", "t925", "tenki", "surf"];
   const DEFAULT_ON = ["jet300", "z500", "t700", "t850", "t925", "surf"];
   const REGION_DEFAULT = "japan";
   // 上部メニューとパネル見出し用の短い名前
   const SHORT = { surf: "地上降水", tenki: "天気", t975: "975", t925: "925", t850: "850", ept850: "850EPT",
-                  t700: "700", t500: "500気温", z500: "500高度", jet300: "300" };
+                  t700: "700", t500: "500気温", z500: "500高度", jet300: "300", jet200: "200", t300: "300気温" };
   const RSHORT = { japan: "日本周辺", okinawa: "沖縄周辺", asia: "東アジア", japan3: "日本域0.125°", okinawa3: "南西域0.125°" };
   const RORDER = ["japan", "okinawa", "asia", "japan3", "okinawa3"];
 
