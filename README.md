@@ -128,14 +128,14 @@ kill $(lsof -ti :8790)                                                          
 
 公開は **gh-pages ブランチ**方式（詳細は [PUBLISH.md](PUBLISH.md)）。
 - **画面だけの修正**は、push すると `deploy-web.yml` が**画像を作らず**画面ファイルだけを数十秒で反映する。
-- **データの更新**は `update-model.yml` が 1日8回（UTC 1:30 / 4:30 / 7:30 / 9:30 / 18:30 / 20:30 / 22:30 / 23:30。配信実測に合わせた時刻）、**モデルごとに別ジョブで並行**して作図し、できたモデルから公開する（取得完了を待たずステップごとに作図）。GitHub の `schedule` は遅れるため、同じ時（UTC）の :30 と :55 に **cron-job.org から `workflow_dispatch` でも起動**する（1日16回）（2026-11-10〜。設定・トークン期限は [CRON_JOB_ORG.md](CRON_JOB_ORG.md)）。
+- **データの更新**は `update-model.yml` が 1日9回（UTC 1:30 / 4:30 / 6:30 / 7:30 / 9:30 / 18:30 / 20:30 / 22:30 / 23:30。配信実測に合わせた時刻）、**モデルごとに別ジョブで並行**して作図し、できたモデルから公開する（取得完了を待たずステップごとに作図）。GitHub の `schedule` は遅れるため、同じ時（UTC）の :30 と :55 に **cron-job.org から `workflow_dispatch` でも起動**する（1日16回）（2026-11-10〜。設定・トークン期限は [CRON_JOB_ORG.md](CRON_JOB_ORG.md)）。
 - 公開物は PNG と manifest だけで、元データ（GRIB2）は公開サーバーにも保存されない。約2日分を載せる（ECMWF は 00/12/18UTC の5初期値、GFS・AIFS は 00/12UTC の4初期値。合計約1.0GB）。
 
 出典・ライセンス・免責・改変の表示は画面に常時出している。
 
 ### 定期起動に使っている cron-job.org（概要）
-- **cron-job.org** は、「決めた時刻になったら指定のURLにアクセスしてくれる」**無料の外部cronサービス**。ここでは、各時の :30 と :55（UTC・1日16回）に、**GitHub の API で `update-model` を起動する合図**を送らせている。
-- 使う理由: GitHub Actions 自身の定期実行（`schedule`）は時刻が保証されず、数時間遅れたり間引かれたりする（2026-11-09 に約10時間停止）。Mac にも頼りたくないので、**時刻の正確さは cron-job.org、処理は GitHub Actions** と役割を分けた。`schedule`（1日8回）は予備。
+- **cron-job.org** は、「決めた時刻になったら指定のURLにアクセスしてくれる」**無料の外部cronサービス**。ここでは、各時の :30 と :55（UTC・1日18回）に、**GitHub の API で `update-model` を起動する合図**を送らせている。
+- 使う理由: GitHub Actions 自身の定期実行（`schedule`）は時刻が保証されず、数時間遅れたり間引かれたりする（2026-11-09 に約10時間停止）。Mac にも頼りたくないので、**時刻の正確さは cron-job.org、処理は GitHub Actions** と役割を分けた。`schedule`（1日9回）は予備。
 - 仕組み: cron-job.org → `POST .../actions/workflows/update-model.yml/dispatches`（`workflow_dispatch`・専用トークン認証）→ `update-model` が起動 → 揃った初期値だけ作図して公開。揃っていなければ何もしないので、何度呼んでも安全。
 - 注意: 専用トークンに**期限**がある（2027-02-08 01:45 UTC。14日前から Slack DM で通知）。詳しい仕組み・設定・更新手順は [CRON_JOB_ORG.md](CRON_JOB_ORG.md)。
 

@@ -48,14 +48,14 @@ GitHub Pages（公開サイト）が更新される
 - **トークンに期限がある**（このリポジトリは **2027-02-08 01:45:40 UTC**）。切れると 401 で起動に失敗する。期限の14日前から Slack DM で通知する（3-2節）。
 - 外部サービスに**トークンを預ける**ことになる。権限を最小（このリポジトリのActionsだけ）・期限付きにして、リスクを抑えている。トークンの値は、チャットやファイル、リポジトリに**書かない**。
 - cron-job.org のジョブは、**失敗が続くと自動で無効化**されることがある。止まっていないか、ときどき確認する（4節）。
-- 無料プランには、実行間隔や回数などの制限がある（詳細は cron-job.org の公式ページで確認）。現在の1日16回は範囲内で動いている。
-- cron-job.org 自体が止まっても、予備の `schedule`（1日8回）が動く。ただし遅れやすいので、公開が古くなることはある。
+- 無料プランには、実行間隔や回数などの制限がある（詳細は cron-job.org の公式ページで確認）。現在の1日18回は範囲内で動いている。
+- cron-job.org 自体が止まっても、予備の `schedule`（1日9回）が動く。ただし遅れやすいので、公開が古くなることはある。
 
 ## 1. なぜ使うか（このプロジェクトでの経緯）
 `update-model.yml` の `schedule`（GitHub側のcron）は遅れたり間引かれたりする。2026-11-09 は 14:08 UTC を最後に約10時間動かず、11/9 12Z 分の公開が遅れた。そこで taiwan_radar_frames と同じく、**cron-job.org から GitHub API で `workflow_dispatch` を呼んで起動**する。`schedule` は予備として残す（同時実行は `concurrency` でモデルごとに1つずつ処理される）。
 
 ```
-cron-job.org（1日16回）
+cron-job.org（1日18回）
   → POST https://api.github.com/repos/masauehr/nwp_chart_web/actions/workflows/update-model.yml/dispatches
        （専用トークンで認証）
   → GitHub Actions: update-model が起動 → 揃った初期値だけ作図 → gh-pages へ公開
@@ -69,7 +69,7 @@ cron-job.org（1日16回）
 | URL | `https://api.github.com/repos/masauehr/nwp_chart_web/actions/workflows/update-model.yml/dispatches` |
 | 方式・本文 | POST、`{"ref":"main","inputs":{"model":"all"}}` |
 | ヘッダー | `Authorization: Bearer <トークン>`、`Accept: application/vnd.github+json`、`X-GitHub-Api-Version: 2022-11-28`、`Content-Type: application/json` |
-| 実行時刻（UTC） | 時は 1 / 4 / 7 / 9 / 18 / 20 / 22 / 23 の各時の **:30 と :55**（計16回。JST は +9 時間）。GitHub側の `schedule`（予備）は各時の :30 のみの8回 |
+| 実行時刻（UTC） | 時は 1 / 4 / 6 / 7 / 9 / 18 / 20 / 22 / 23 の各時の **:30 と :55**（計18回。JST は +9 時間。6時台は 2026-11-10 に追加）。GitHub側の `schedule`（予備）は各時の :30 のみの9回 |
 | 正常な応答 | `204 No Content` |
 
 時刻の根拠は配信時刻の実測（`check_availability.py --report`）。初期値から72時間分が揃うまで、GFS 約4〜6時間、AIFS 約5.5〜7時間、ECMWF 約7〜11時間。揃っていない回は何も作らず終わる（空振りは安い）。
@@ -77,7 +77,7 @@ cron-job.org（1日16回）
 | 時（UTC・各時の :30 と :55） | 狙い |
 |---|---|
 | 1 / 4 | ECMWF 18Z |
-| 7 / 9 | 00Z（GFS・AIFS は7時台、ECMWF は9時台） |
+| 6 / 7 / 9 | 00Z（GFS は6〜7時台、AIFS は6〜7時台、ECMWF は9時台）。**6時台は、AIFS の 00Z が 5:57 UTC に揃ったのに次の 7:30 まで待った（2026-11-10）ため追加** |
 | 18 / 20 / 22 / 23 | 12Z（ECMWF の遅い回は23時台） |
 
 :55 を足したのは、:30 の回に揃っていなかった場合の取りこぼしを25分後に拾うため（揃っていれば何も作らず終わる）。

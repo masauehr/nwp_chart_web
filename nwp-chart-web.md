@@ -75,8 +75,8 @@ python make_charts.py ?                     # ヘルプ
 | `build_site.py` | 公開用 `_site/`（web/ + output/）を組み立てる |
 | `server.py` | ローカルサーバー（`/`=web/、`/output/`、更新API）。既定ポート8790 |
 | `web/` | 通常版 / `web/board/` 画用紙版（相対パスなので静的サイトのサブパスでも動く） |
-| `.github/workflows/update-model.yml` | GitHub Actions: **モデルごとに別ジョブで並行**して作図→公開ブランチへ反映（cron 1日8回／手動でモデル指定可） |
-| `CRON_JOB_ORG.md` | cron-job.org から `update-model` を起動する設定（各時の :30/:55・1日16回）、トークン期限（2027-02-08）、更新手順、Slack期限通知 |
+| `.github/workflows/update-model.yml` | GitHub Actions: **モデルごとに別ジョブで並行**して作図→公開ブランチへ反映（cron 1日9回／手動でモデル指定可） |
+| `CRON_JOB_ORG.md` | cron-job.org から `update-model` を起動する設定（各時の :30/:55・1日18回）、トークン期限（2027-02-08）、更新手順、Slack期限通知 |
 | `ops/token_expiry_notify.py` / `launchd/com.masahiro.nwp_chart_web_token_notify.plist` | トークン期限の14日前から Slack DM で通知（毎日9:05。`tests/test_token_expiry_notify.py` 11件） |
 | `.github/workflows/deploy-web.yml` | `web/**` を直して push すると、**画像を作らず**画面ファイルだけを数十秒で反映 |
 | `output/{モデル}/{初期値}/{地域}/{図種}_{FT3桁}.png` | 作成画像（git除外）。`output/manifest.json` が一覧 |
@@ -96,7 +96,7 @@ GitHub Pages の配信元は **gh-pages ブランチ**（画像と画面ファ�
 | やりたいこと | 動くもの | 時間 |
 |---|---|---|
 | 画面（`web/`）を直した | push すると `deploy-web.yml` が **画像を作らず**画面ファイルだけ反映 | 数十秒 |
-| モデルの最新データを反映 | `update-model.yml`（cron 1日8回＋cron-job.org から `workflow_dispatch`、手動でモデル指定可。設定は CRON_JOB_ORG.md）。**モデルごとに別ジョブで並行**し、できたモデルから公開 | モデルごとに数十分 |
+| モデルの最新データを反映 | `update-model.yml`（cron 1日9回＋cron-job.org から `workflow_dispatch`、手動でモデル指定可。設定は CRON_JOB_ORG.md）。**モデルごとに別ジョブで並行**し、できたモデルから公開 | モデルごとに数十分 |
 
 - 各ジョブは、公開済みの画像を取り込んで「作成済みか」を判定し、新しい初期値だけを作る。公開するのは**約2日分**（ECMWF は 00/12/18UTC の最新5初期値、GFS・AIFS は 00/12UTC の最新4初期値。06UTC は公開しない。合計約1.0GB）。
 - 他のモデルの画像には触れない。manifest は公開側を走査して再生成し、中身が同じなら更新しない（無駄なコミットを避ける）。
