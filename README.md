@@ -133,6 +133,12 @@ kill $(lsof -ti :8790)                                                          
 
 出典・ライセンス・免責・改変の表示は画面に常時出している。
 
+### 定期起動に使っている cron-job.org（概要）
+- **cron-job.org** は、「決めた時刻になったら指定のURLにアクセスしてくれる」**無料の外部cronサービス**。ここでは、各時の :30 と :55（UTC・1日16回）に、**GitHub の API で `update-model` を起動する合図**を送らせている。
+- 使う理由: GitHub Actions 自身の定期実行（`schedule`）は時刻が保証されず、数時間遅れたり間引かれたりする（2026-11-09 に約10時間停止）。Mac にも頼りたくないので、**時刻の正確さは cron-job.org、処理は GitHub Actions** と役割を分けた。`schedule`（1日8回）は予備。
+- 仕組み: cron-job.org → `POST .../actions/workflows/update-model.yml/dispatches`（`workflow_dispatch`・専用トークン認証）→ `update-model` が起動 → 揃った初期値だけ作図して公開。揃っていなければ何もしないので、何度呼んでも安全。
+- 注意: 専用トークンに**期限**がある（2027-02-08 01:45 UTC。14日前から Slack DM で通知）。詳しい仕組み・設定・更新手順は [CRON_JOB_ORG.md](CRON_JOB_ORG.md)。
+
 **GSM はローカル専用**です。ローカルで `python update_latest.py` や画面の「最新を取得」を使うと、GSM も含めて4モデルを比較できます（公開サイトには GSM を載せません。詳細は [nwp-chart-web.md](nwp-chart-web.md)）。
 
 **モデル比較**: 通常版の「2モデル比較」（左右に並べる）と、画用紙版の「モデル違い」（図を選んで他のモデルを追加）の2通りで、ECMWF（IFS）・AIFS・GFS を比べられます（IFS と AI モデルの差が見どころ）。使い方は上の「[モデルを比較する](#モデルを比較する)」を参照。最新の初期値がモデルで違っても、**予報有効時刻を合わせて**表示する（見出しに `GFS [11/04 00Z +6h]` のように初期値と予報時間が出る）。
