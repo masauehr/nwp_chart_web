@@ -37,7 +37,22 @@ cron-job.org（1日8回）
 3. **Test run** で `204` を確認し、応答ヘッダーの新しい期限を、この文書の「トークン期限」に書き換える。
 
 期限が切れると401で起動が失敗し、`schedule` の予備だけになる（更新が遅れ、公開が古くなる）。
-※ トークン期限の Slack 通知は、現時点では未導入（taiwan_radar_frames の `ops/token_expiry_notify.py` は別トークン用）。
+
+## 3-2. トークン期限の Slack 通知（2026-11-10〜・Bluesky自動投稿／taiwan_radar_frames と同じ方式）
+Macのlaunchd が毎日スクリプトを起動し、`openclaw message send` 経由で Slack DM に送る。
+
+| 項目 | 内容 |
+|------|------|
+| スクリプト | `ops/token_expiry_notify.py`（taiwan_radar_frames のコピー。部品は共有しない）。テスト `tests/test_token_expiry_notify.py`（11件） |
+| 起動 | `launchd/com.masahiro.nwp_chart_web_token_notify.plist`（毎日 9:05 JST。スリープ中だった日は復帰後に1回） |
+| 通知する段階 | 期限の14/7/3/2/1日前。期限切れ後は毎日。同じ段階は1回だけ |
+| 設定（`~/.config/nwp_chart_web/`・git管理外） | `token_expiry`（期限1行。現在 `2027-02-08T01:45:40Z`）、`slack_to`（通知先）、`notify_state.json`（自動）、`notify.log` |
+| 注意 | OpenClaw Gateway が止まっている・Macが起動していない日は届かない |
+
+動作確認: `python3 ops/token_expiry_notify.py --test`（テスト通知）／`--dry-run --now 2027-02-05T00:00:00Z`（通知文だけ表示）。
+止める: `launchctl bootout gui/$(id -u)/com.masahiro.nwp_chart_web_token_notify` と `~/Library/LaunchAgents/` の plist を削除。
+
+**トークンを更新したら（3節の最後に必ず）**: `echo '新しい期限' > ~/.config/nwp_chart_web/token_expiry`。書き換えを忘れると、古い期限で「期限切れ」の通知が毎日届く。
 
 ## 4. 確認・トラブル対応
 - 起動の確認: `gh run list --workflow update-model --limit 8` の `event` が `workflow_dispatch` なら cron-job.org 経由。
