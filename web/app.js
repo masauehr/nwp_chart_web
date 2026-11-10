@@ -208,11 +208,17 @@
   function buildInitSel() {
     const sel = $("initSel");
     sel.innerHTML = "";
+    const anal = isAnal(S.model);
+    $("initLabel").textContent = anal ? "開始" : "初期値";             // 再解析（JRA-55）は「開始時刻から○コマ」の系列
     for (const i of inits()) {
       const o = document.createElement("option");
       const d = parseInit(i.init);
       o.value = i.init;
       o.textContent = fmt(d, 0, "UTC");
+      if (anal) {                                                      // 系列のコマ数（異なる予報時間の数）。時刻はスライダー・再生で動かす
+        const n = Math.max(0, ...Object.values(i.regions || {}).flatMap((r) => Object.values(r).map((l) => l.length)));
+        if (n > 1) o.textContent += ` から${n}コマ（＋${(n - 1) * 6}h）`;
+      }
       sel.appendChild(o);
     }
     sel.value = S.init;
