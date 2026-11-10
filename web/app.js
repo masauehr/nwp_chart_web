@@ -53,7 +53,7 @@
   const regionsAvail = () => [...new Set(shownModels().flatMap((m) => Object.keys(regionMap(m))))];
   // 図種の並びは 高層→地上。公開側の manifest は次の更新まで古い順のままなので、画面側にも順を持つ（nwp_charts.CHARTS と同じ順）。
   // 未知の図種は末尾（manifest の順）
-  const CHART_ORDER = ["jet200", "jet300", "t300", "z500", "t500", "t700", "ept850", "t850", "t925", "t975", "tenki", "surf"];
+  const CHART_ORDER = ["jet100", "jet200", "jet300", "t300", "z500", "t500", "t700", "ept850", "t850", "t925", "t975", "tenki", "surf"];
   const chartRank = (c) => {
     const i = CHART_ORDER.indexOf(c);
     return i >= 0 ? i : 100 + Object.keys(S.manifest.charts).indexOf(c);

@@ -6,7 +6,7 @@ ECMWF（IFS オープンデータ）・ECMWF AIFS（AI予報モデル）・NOAA 
 ## できること
 
 - 配信元から**必要な変数だけ**を部分取得（ECMWF 約19MB・GFS 約38MB/ステップ）して作図。GRIB2は作図後に削除し、残るのはPNGだけ。
-- 4モデル（ECMWF / ECMWF AIFS / NOAA GFS / **JMA GSM**）× 図種 12 × 地域 × 予報時間（既定 FT0〜72h）。IFS/AIFS/GFS は6時間毎・3地域。**GSM はローカル専用**で、全球0.5°（6時間毎・3地域）に加えて日本域0.125°（3時間毎・`japan3`/`okinawa3`）も作る。
+- 4モデル（ECMWF / ECMWF AIFS / NOAA GFS / **JMA GSM**）× 図種 13 × 地域 × 予報時間（既定 FT0〜72h）。IFS/AIFS/GFS は6時間毎・3地域。**GSM はローカル専用**で、全球0.5°（6時間毎・3地域）に加えて日本域0.125°（3時間毎・`japan3`/`okinawa3`）も作る。
 - 通常版（1枚ずつ）と画用紙版（複数を並べる）。**モデル切替**と、**ECMWF と GFS の同時比較**（画用紙版の「モデル違い」）。
 - 公開用の静的サイトを `build_site.py` で組み立て可能（GitHub Pages 等）。
 
@@ -19,6 +19,7 @@ ECMWF（IFS オープンデータ）・ECMWF AIFS（AI予報モデル）・NOAA 
 | `z500` | 500hPa 高度・渦度 | |
 | `t500` | 500hPa 気温・湿数・風 | |
 | `jet300` | 300hPa 高度・気温・等風速・風 | |
+| `jet100` | 100hPa 高度・気温・等風速・風（風が弱いので風速の塗りは20〜120ktの区切り） | **GSM のみ**（アジア域）。ECMWF/GFS/AIFS は100hPaを取得しない |
 | `jet200` | 200hPa 高度・気温・等風速・風（jet300 と同じ見た目） | **アジア域のみ**。GSM（ローカル）にも作る |
 | `t300` | 300hPa 気温・湿数・風（t500 と同じ作り） | **アジア域のみ** |
 | `t850` / `t700` / `t925` | 気温・湿数（700は上昇流）・風 | |
@@ -142,6 +143,8 @@ GitHub Actions の取得時刻（cron）を推測でなく実測で決めるた�
 - 図種 `jet200`（200hPa ジェット・気温・高度・風。見た目は jet300 と同じ）と `t300`（300hPa 気温・湿数・風。500hPa と同じ作り）を追加。**アジア域のみ**（`nwp_charts.CHARTS` の `regions`。容量のため）。200hPa を取得する（`nwp_data.PLEVELS` に200を追加。ダウンロード約+15%）。GSM（ローカル専用）にも作る（`gsm_source.PLEVELS` に200を追加。GRIB2には200hPaが入っているので再取得は不要。既存の初期値へは `make_charts.py gsm INIT --charts jet200 t300 --regions asia` で後から作れる）。
 - 容量: 1初期値あたり +約5〜5.5MB（ECMWF 5.5・GFS 5.7・AIFS 5.0）。全地域だと約+164MB で Pages 1GB 目安を超えるため、アジア域のみ＋**ECMWF の公開個数を 6→5**（`publish_keep`）にして収めた（約1.0GB）。
 - すでに作成済みの初期値には追加されない（新しい初期値から）。手元に作りたいときは `make_charts.py MODEL INIT --charts jet200 t300 --regions asia`。
+
+- **jet100（100hPaジェット）をGSMのみに追加**（2026-11-10）。`gsm_source.PLEVELS` に100を追加（GRIB2に入っているので再取得は不要）。風速の区切りは 20/30/40/50/60/80/100/120kt（実測 中央値27・最大112kt）。他モデルは100hPaを取得しないので作られない。既存の初期値へは `make_charts.py gsm INIT --charts jet100 --regions asia`。
 
 ## 公開する初期値を約2日分に変更（2026-11-05）
 - **ECMWF: 00/12/18UTC の最新6初期値、GFS・AIFS: 00/12UTC の最新4初期値**（06UTC は公開しない）。1初期値は約53〜75MB で、合計約0.9GB（Pages 1GB 目安以内。8初期値や全モデル6初期値は約1.2〜1.6GBで超過）。

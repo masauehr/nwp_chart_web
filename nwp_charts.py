@@ -359,23 +359,31 @@ def chart_z500(ax, V, F, ctx):
                ["-200", "-120", "-80", "-40", "0", "40", "120", "200", "400", "900"])
 
 
+# ジェット図の気圧面ごとの設定: gh=等高度線の範囲[m]（120m毎・600m毎に太線）、spd=風速の塗りの区切り[kt]
+_JET = {
+    300: dict(gh=(8400, 10000), spd=[60, 80, 100, 120, 140, 160, 180, 200, 1000]),
+    200: dict(gh=(10800, 12600), spd=[60, 80, 100, 120, 140, 160, 180, 200, 1000]),
+    100: dict(gh=(15600, 16800), spd=[20, 30, 40, 50, 60, 80, 100, 120, 1000]),   # 100hPaは風が弱い（GSMのみ）
+}
+
+
 def _chart_jet(ax, V, F, ctx, plev):
-    """ジェット図（風速の塗り・気温・高度・風）。plev=300 または 200hPa"""
+    """ジェット図（風速の塗り・気温・高度・風）。plev=300 / 200 / 100hPa"""
     d = F["p"][plev]
     V.set_level(F, plev)
     spd = np.hypot(d["u"], d["v"]) * KT
-    lv = [60, 80, 100, 120, 140, 160, 180, 200, 1000]
+    lv = _JET[plev]["spd"]
     cols = ["#fffbd0", "#fff6a0", "#fff070", "#ffe940", "#ffdd1a", "#ffd000", "#ffc400", "#ffb800"]
     fill(ax, V, spd, lv, cols)
     lines(ax, V, d["t"], np.arange(-90, 0, 3), color="red", lw=0.9, label_levels=list(range(-90, 0, 9)),
           fmt="%d", fs=8)
-    g0, g1 = (8400, 10000) if plev == 300 else (10800, 12600)     # 等高度線の範囲[m]（120m毎・600m毎に太線）
+    g0, g1 = _JET[plev]["gh"]
     lines(ax, V, d["gh"], np.arange(g0, g1, 120), major=list(range(g0, g1, 600)),
           fmt="%d", fs=8)
     barbs(ax, V, d["u"], d["v"], "#1a237e")
     ctx["title"] = f"ISTAC{plev},Z{plev},T{plev},Wind{plev}"
     legend_box(ax, [(c, None, None) for c in cols[:8]],
-               ["60", "80", "100", "120", "140", "160", "180", "200", ""])
+               [str(x) for x in lv[:-1]] + [""])
 
 
 def chart_jet300(ax, V, F, ctx):
@@ -384,6 +392,10 @@ def chart_jet300(ax, V, F, ctx):
 
 def chart_jet200(ax, V, F, ctx):
     _chart_jet(ax, V, F, ctx, 200)
+
+
+def chart_jet100(ax, V, F, ctx):
+    _chart_jet(ax, V, F, ctx, 100)
 
 
 def _chart_tdep(ax, V, F, ctx, lv, tstep=3):
@@ -466,6 +478,7 @@ def chart_ept850(ax, V, F, ctx):
 CHARTS = {
     # 並びは 高層→地上（画面のタブ・manifestの図種順はこの順）。追加するときも高度順の位置に入れる
     # regions: 作る地域を限る（容量のため。省略=全地域）。levels: 無いモデルでは作らない気圧面
+    "jet100": dict(label="100hPa（ジェット・気温・風）", fn=chart_jet100, levels=[100], regions=("asia",)),   # GSMのみ（他モデルは100hPaを取得しない）
     "jet200": dict(label="200hPa（ジェット・気温・風）", fn=chart_jet200, levels=[200], regions=("asia",)),
     "jet300": dict(label="300hPa（ジェット・気温・風）", fn=chart_jet300),
     "t300": dict(label="300hPa（気温・湿数・風）", fn=chart_t300, levels=[300], regions=("asia",)),
