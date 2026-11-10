@@ -201,7 +201,7 @@ SURFACE = {
     "v10": ("10v", "heightAboveGround", 10),
     "t2": ("2t", "heightAboveGround", 2),
 }
-PLEVELS = (975, 925, 850, 700, 500, 300)  # 存在する面だけが使われる（Rglに975は無い）
+PLEVELS = (975, 925, 850, 700, 500, 300, 200)  # 存在する面だけが使われる（Rglに975は無い）。200hPaはjet200用
 PVARS = {"gh": "gh", "t": "t", "u": "u", "v": "v", "r": "r", "w": "w"}
 
 
