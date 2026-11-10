@@ -364,7 +364,6 @@ def chart_z500(ax, V, F, ctx):
 _JET = {
     300: dict(gh=(8400, 10000), spd=[60, 80, 100, 120, 140, 160, 180, 200, 1000]),
     200: dict(gh=(10800, 12600), spd=[60, 80, 100, 120, 140, 160, 180, 200, 1000]),
-    100: dict(gh=(15600, 16800), spd=[20, 30, 40, 50, 60, 80, 100, 120, 1000]),   # 100hPaは風が弱い（GSMのみ）
 }
 
 
@@ -396,7 +395,23 @@ def chart_jet200(ax, V, F, ctx):
 
 
 def chart_jet100(ax, V, F, ctx):
-    _chart_jet(ax, V, F, ctx, 100)
+    """100hPa（GSMのみ）: tenkizu の GSM_100hPa.py と同じ表示。風速(ISOTAC)を YlOrRd で塗り（20〜120kt・20kt毎・透明度0.65）、
+    青の等風速線(20kt毎・ラベル付き)、黒の等高度線(60m毎・120m毎にラベル)、黒の風矢羽。気温の線は描かない。"""
+    d = F["p"][100]
+    V.set_level(F, 100)
+    spd = np.hypot(d["u"], d["v"]) * KT
+    lv = [20, 40, 60, 80, 100, 120]
+    cm = matplotlib.colormaps["YlOrRd"]
+    cols = [tuple(1 - 0.65 * (1 - c) for c in cm(x)[:3]) for x in np.linspace(0, 1, len(lv))]   # 透明度0.65を白地に合成した色（最後は120kt超）
+    fill(ax, V, spd, lv, cols, extend="max")
+    lines(ax, V, spd, lv, color="blue", lw=1.3, label_levels=lv, fs=9)                          # ISOTAC（20kt毎）
+    gh = V.raw(d["gh"])
+    g0, g1 = int(np.nanmin(gh) // 60) * 60, int(np.nanmax(gh) // 60 + 2) * 60
+    levels = np.arange(g0, g1, 60)
+    lines(ax, V, d["gh"], levels, color="k", lw=1.0, label_levels=[x for x in levels if x % 120 == 0], fs=9)   # 等高度線（60m毎・120m毎にラベル）
+    barbs(ax, V, d["u"], d["v"], "k", lw=0.8)
+    ctx["title"] = "Z100,ISOTAC,Wind100"
+    legend_box(ax, [(c, None, None) for c in cols], [str(x) for x in lv] + [""])
 
 
 def _chart_tdep(ax, V, F, ctx, lv, tstep=3):
