@@ -51,7 +51,10 @@
     return ((((e || {}).regions || {})[region] || {})[chart]) || [];
   };
   const regionsAvail = () => [...new Set(shownModels().flatMap((m) => Object.keys(regionMap(m))))];
-  const chartsAvail = (region) => [...new Set(shownModels().flatMap((m) => Object.keys(regionMap(m)[region] || {})))];
+  // 図種の並びは manifest.charts の順（高層→地上）。古いmanifestの順（ABC順）でも、ここで並べ直す
+  const chartRank = (c) => { const i = Object.keys(S.manifest.charts).indexOf(c); return i < 0 ? 999 : i; };
+  const byChart = (list) => list.sort((a, b) => chartRank(a) - chartRank(b));
+  const chartsAvail = (region) => byChart([...new Set(shownModels().flatMap((m) => Object.keys(regionMap(m)[region] || {})))]);
 
   // 予報時間 ft がその図に無いとき（刻みの粗い範囲）は、直前の予報時間、無ければ最小のものを使う
   const pickFt = (list, ft) => {
@@ -311,7 +314,7 @@
     const box = $("thumbs");
     const regs = (cur() || {}).regions || {};
     const charts = regs[S.region] || {};
-    const list = Object.keys(charts).filter((c) => charts[c].includes(S.ft));
+    const list = byChart(Object.keys(charts).filter((c) => charts[c].includes(S.ft)));
     // 図の構成（モデル・初期値・範囲・図種の並び）が同じなら、要素は作り直さず画像だけ差し替える
     const key = [S.model, S.init, S.region, list.join(",")].join("|");
     if (box.dataset.key === key) {

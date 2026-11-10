@@ -141,7 +141,7 @@ def write_manifest(output_dir=None, public_only=False):
                         if m and m.group(1) in nwp_charts.CHARTS:
                             charts.setdefault(m.group(1), []).append(int(m.group(2)))
                     if charts:
-                        regions[rd.name] = {c: sorted(v) for c, v in sorted(charts.items())}
+                        regions[rd.name] = {c: sorted(charts[c]) for c in nwp_charts.CHARTS if c in charts}   # 図種は高層→地上（CHARTSの順）
                 if regions:
                     inits.append({"init": d.name, "regions": regions})
         if inits:

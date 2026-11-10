@@ -450,16 +450,17 @@ def chart_ept850(ax, V, F, ctx):
 
 
 CHARTS = {
-    "surf": dict(label="地上（気圧・風・降水）", fn=chart_surf),
-    "tenki": dict(label="地上（天気・気圧・SSI）", fn=chart_tenki),
+    # 並びは 高層→地上（画面のタブ・manifestの図種順はこの順）。追加するときも高度順の位置に入れる
+    "jet300": dict(label="300hPa（ジェット・気温・風）", fn=chart_jet300),
     "z500": dict(label="500hPa（高度・渦度）", fn=chart_z500),
     "t500": dict(label="500hPa（気温・湿数・風）", fn=chart_t500),
-    "jet300": dict(label="300hPa（ジェット・気温・風）", fn=chart_jet300),
-    "t850": dict(label="850hPa（気温・湿数・風）", fn=chart_t850),
     "t700": dict(label="700hPa（上昇流・気温・湿数）", fn=chart_t700),
+    "ept850": dict(label="850hPa（EPT・SSI・風）", fn=chart_ept850),
+    "t850": dict(label="850hPa（気温・湿数・風）", fn=chart_t850),
     "t925": dict(label="925hPa（気温・湿数・風）", fn=chart_t925),
     "t975": dict(label="975hPa（気温・湿数・風）", fn=chart_t975, levels=[975]),
-    "ept850": dict(label="850hPa（EPT・SSI・風）", fn=chart_ept850),
+    "tenki": dict(label="地上（天気・気圧・SSI）", fn=chart_tenki),
+    "surf": dict(label="地上（気圧・風・降水）", fn=chart_surf),
 }
 
 
