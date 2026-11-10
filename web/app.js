@@ -458,17 +458,19 @@
 
   async function pollUpdate() {
     let j;
-    try { j = await (await fetch(API + "status")).json(); } catch (e) {
+    try { j = await (await fetch(API + "status", { cache: "no-store" })).json(); } catch (e) {
       // 更新APIが無い（公開用の静的サイト）場合はボタンごと隠す
-      $("btnUpdate").hidden = true; $("btnSync").hidden = true; $("updateMsg").hidden = true; return;
+      $("btnUpdate").hidden = true; $("btnSync").hidden = true; $("btnPast").hidden = true; $("updateMsg").hidden = true; return;
     }
     const last = (j.log && j.log.length) ? j.log[j.log.length - 1] : "";
     if (j.running) {
-      $("btnUpdate").disabled = true; $("btnSync").disabled = true;
+      $("btnUpdate").disabled = true; $("btnSync").disabled = true; $("pastGo").disabled = true;
       $("updateMsg").textContent = "更新中…"; $("updateMsg").title = last;       // 長い進捗は行を増やすので、詳細はツールチップへ
+      if ($("pastDlg").open) $("pastMsg").textContent = "実行中: " + last;
       setTimeout(pollUpdate, 3000);
     } else {
-      $("btnUpdate").disabled = false; $("btnSync").disabled = false;
+      $("btnUpdate").disabled = false; $("btnSync").disabled = false; $("pastGo").disabled = false;
+      if ($("pastDlg").open) { $("pastMsg").textContent = (j.rc !== null && j.rc !== undefined) ? (j.rc === 0 ? "完了: " : "失敗: ") + last : ""; loadPast(); }
       if (j.rc === null || j.rc === undefined) { $("updateMsg").textContent = ""; return; }
       $("updateMsg").title = last;
       $("updateMsg").textContent = j.rc !== 0 ? "失敗（ログ確認）" : /変更はありません/.test(last) ? "変更なし" : "更新完了";  // 短く。詳細はツールチップ
@@ -487,6 +489,77 @@
     $("btnUpdate").disabled = true; $("btnSync").disabled = true;
     $("updateMsg").textContent = "公開分の同期を開始しています…";
     try { await fetch(API + "sync", { method: "POST" }); } catch (e) { $("updateMsg").textContent = "開始できません"; $("btnUpdate").disabled = false; $("btnSync").disabled = false; return; }
+    pollUpdate();
+  };
+
+  // ---------- GSM過去分（過去の初期値の取得・一覧・削除。サーバーの /api/past/* を呼ぶ）
+  const pastRows = $("pastTbl").tBodies[0];
+  const pastBtn = (text, onclick) => { const b = document.createElement("button"); b.textContent = text; b.onclick = onclick; return b; };
+  const fmtGb = (mb) => (mb >= 1000 ? (mb / 1000).toFixed(2) + "GB" : Math.round(mb) + "MB");
+
+  // 削除は2段階: 1回目で「本当に削除」に変わり、4秒以内にもう一度押すと実行する（誤操作防止）
+  function deleteBtn(label, init, png) {
+    const b = pastBtn(label, async () => {
+      if (!b.classList.contains("sure")) {
+        b.classList.add("sure"); b.textContent = "本当に削除";
+        setTimeout(() => { b.classList.remove("sure"); b.textContent = label; }, 4000);
+        return;
+      }
+      b.disabled = true;
+      try {
+        const r = await fetch(API + "past/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ init, png }) });
+        const j = await r.json();
+        $("pastMsg").textContent = r.ok ? `削除しました: ${init}（GRIB2 ${j.deleted.grib}個${png ? "、画像 " + j.deleted.png + "枚" : ""}）` : (j.error || "削除できません");
+      } catch (e) { $("pastMsg").textContent = "削除できません"; }
+      await loadPast();
+      if (png) reloadManifest();
+    });
+    return b;
+  }
+
+  async function loadPast() {
+    let j;
+    try { j = await (await fetch(API + "past/list", { cache: "no-store" })).json(); } catch (e) { $("pastMsg").textContent = "一覧を取得できません"; return; }
+    const sel = $("pastFt");
+    if (!sel.options.length) for (const f of j.ft_choices) sel.add(new Option(`${f}時間`, f, false, f === 72));
+    pastRows.innerHTML = "";
+    for (const r of j.inits) {
+      const tr = pastRows.insertRow();
+      tr.insertCell().textContent = `${r.init.slice(0, 4)}-${r.init.slice(4, 6)}-${r.init.slice(6, 8)} ${r.init.slice(8, 10)}Z`;
+      tr.insertCell().textContent = r.grib_files ? `${r.grib_files}個 ${fmtGb(r.grib_mb)}` : "—";
+      tr.insertCell().textContent = r.png_count ? `${r.png_count}枚 ${fmtGb(r.png_mb)}` : "—";
+      tr.insertCell().textContent = r.manual ? "○" : "";
+      const c = tr.insertCell();
+      if (r.grib_files) c.appendChild(deleteBtn("GRIB2削除", r.init, false));
+      c.appendChild(deleteBtn("すべて削除", r.init, true));
+    }
+    const g = j.inits.reduce((a, r) => a + r.grib_mb, 0), p = j.inits.reduce((a, r) => a + r.png_mb, 0);
+    $("pastTotal").textContent = `合計: GRIB2 ${fmtGb(g)}、画像 ${fmtGb(p)}。「○」は手動取得（自動削除されません）。「すべて削除」は画像・目印も消します。`;
+    $("pastGo").disabled = !!j.running;
+  }
+
+  $("btnPast").onclick = () => {
+    const d = new Date(Date.now() - 3 * 86400e3);   // 既定は3日前（自動取得の範囲より古い日）
+    if (!$("pastDate").value) $("pastDate").value = d.toISOString().slice(0, 10);
+    $("pastDate").max = new Date().toISOString().slice(0, 10);
+    $("pastMsg").textContent = "";
+    $("pastDlg").showModal();
+    loadPast();
+  };
+  $("pastClose").onclick = () => $("pastDlg").close();
+
+  $("pastGo").onclick = async () => {
+    const date = $("pastDate").value.replace(/-/g, "");
+    if (date.length !== 8) { $("pastMsg").textContent = "日付を指定してください"; return; }
+    $("pastGo").disabled = true;
+    $("pastMsg").textContent = "取得を開始しています…";
+    try {
+      const r = await fetch(API + "past/fetch", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ init: date + $("pastHour").value, max_ft: +$("pastFt").value }) });
+      const j = await r.json();
+      if (!r.ok) { $("pastMsg").textContent = j.error || "開始できません"; $("pastGo").disabled = false; return; }
+      if (!j.started) { $("pastMsg").textContent = "別の取得・更新が実行中です。終わってからやり直してください"; $("pastGo").disabled = false; return; }
+    } catch (e) { $("pastMsg").textContent = "開始できません"; $("pastGo").disabled = false; return; }
     pollUpdate();
   };
 

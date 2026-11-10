@@ -23,6 +23,16 @@ main { max-width:1000px; margin:0 auto; padding:10px 16px 24px; }
 #views.size-fit .viewbox { display:flex; justify-content:center; }
 #views.size-fit .viewbox img { width:auto; max-width:100%; max-height:var(--avail, 70vh); }
 #views.size-pct .viewbox img { width:var(--imgw, 100%); margin:0 auto; }
+/* GSM過去分ダイアログ */
+#pastDlg { width:min(720px,94vw); border:1px solid var(--line); border-radius:10px; padding:16px 20px; }
+#pastDlg h2 { font-size:16px; margin:0 0 6px; }
+#pastDlg .note { color:#556; font-size:12px; margin:6px 0; }
+.pastRow { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin:8px 0; }
+#pastTbl { width:100%; border-collapse:collapse; font-size:13px; }
+#pastTbl th, #pastTbl td { border-bottom:1px solid var(--line); padding:4px 6px; text-align:right; }
+#pastTbl th:first-child, #pastTbl td:first-child { text-align:left; }
+#pastTbl button { padding:2px 8px; font-size:12px; margin-left:4px; }
+#pastTbl button.sure { background:#c0392b; color:#fff; border-color:#c0392b; }
 .nodata[hidden] { display:none; }
 .nodata { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:12px; text-align:center; background:#fff; color:#778; }
 /* 2モデル比較: 左右に並べる（狭い画面では縦に積む） */

@@ -86,12 +86,18 @@ def is_built(model, init_s, max_ft, interval):  # interval はモデルごとの
     return all(ft in have for ft in range(0, max_ft + 1, interval))
 
 
+def is_kept(model, init_s):
+    """past_gsm.py で手動取得した初期値（output/<モデル>/<初期値>/.keep がある）は、自動削除しない。"""
+    return (OUTPUT_DIR / model / init_s / ".keep").exists()
+
+
 def prune(model, keep):
     """モデルごとに最新 keep 個の初期値以外のPNGを削除（ファイル単位。ディレクトリごとは消さない）。"""
     md = OUTPUT_DIR / model
     if not md.is_dir():
         return
-    inits = sorted([d.name for d in md.iterdir() if d.is_dir() and re.fullmatch(r"\d{10}", d.name)], reverse=True)
+    inits = sorted([d.name for d in md.iterdir() if d.is_dir() and re.fullmatch(r"\d{10}", d.name) and not is_kept(model, d.name)],
+                   reverse=True)
     n = 0
     for init_s in inits[keep:]:
         d = md / init_s
@@ -125,7 +131,7 @@ def prune_days(models, keep_days, data_dir, dry_run=False):
         md = OUTPUT_DIR / model
         if md.is_dir():
             for d in sorted(md.iterdir()):
-                if d.is_dir() and re.fullmatch(r"\d{10}", d.name) and old(d.name):
+                if d.is_dir() and re.fullmatch(r"\d{10}", d.name) and old(d.name) and not is_kept(model, d.name):
                     pngs = list(d.glob("*/*.png"))
                     log(f"{model}: {d.name} を削除（PNG {len(pngs)} 枚）{' [dry-run]' if dry_run else ''}")
                     if not dry_run:
@@ -147,7 +153,7 @@ def prune_days(models, keep_days, data_dir, dry_run=False):
         n = 0
         for f in files:
             m = re.match(r"Z__C_RJTD_(\d{10})\d{4}_GSM_GPV_", f.name)  # 初期時刻 YYYYMMDDHH + 分秒
-            if m and old(m.group(1)):
+            if m and old(m.group(1)) and not is_kept("gsm", m.group(1)):   # 手動取得(.keep)は残す
                 n += 1
                 if not dry_run:
                     f.unlink()

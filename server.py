@@ -7,6 +7,9 @@
   POST /api/update  → 最新データを取得して作図（update_latest.py を裏で実行。ローカルからのみ）
   POST /api/sync    → 公開サイトで作られた画像を手元へ取り込む（sync_public.py を裏で実行。ローカルからのみ）
   GET  /api/status  → 更新ジョブの状態とログ末尾
+  GET  /api/past/list     → GSM（ローカル専用）の初期値ごとの GRIB2・画像の数と容量
+  POST /api/past/fetch    → GSMの過去の初期値を取得して作図（past_gsm.py。本文 {"init":"YYYYMMDDHH","max_ft":72}）
+  POST /api/past/delete   → GSMの初期値を削除（本文 {"init":"YYYYMMDDHH","png":false}。GRIB2だけ／png=trueで画像も）
 
 使用例:
   python server.py                 # http://127.0.0.1:8790/
@@ -23,6 +26,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+import past_gsm  # noqa: E402  標準ライブラリのみ（GSM過去分の一覧・削除。取得はジョブとして別プロセスで実行）
 LOG_FILE = ROOT / "logs" / "update_ui.log"
 
 # 画面の「最新を取得」ボタンから起動する更新ジョブの状態（サーバープロセス内で1つだけ）
@@ -88,15 +93,49 @@ class Handler(SimpleHTTPRequestHandler):
         return True
 
     def do_GET(self):
-        if self.path.split("?", 1)[0] == "/api/status":
+        path = self.path.split("?", 1)[0]
+        if path == "/api/status":
             if self._local_only():
                 self._json(200, job_status())
             return
+        if path == "/api/past/list":
+            if self._local_only():
+                self._json(200, {"inits": past_gsm.list_inits(), "ft_choices": list(past_gsm.FT_CHOICES), **job_status()})
+            return
         super().do_GET()
+
+    def _body(self):
+        """POSTの本文（JSON）。なければ空dict"""
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            return json.loads(self.rfile.read(n).decode("utf-8")) if 0 < n < 10000 else {}
+        except (ValueError, UnicodeDecodeError):
+            return {}
+
+    def _past(self, path):
+        """GSM過去分の取得・削除（ローカル限定・同一Originのみ。取得中は削除しない）"""
+        b = self._body()
+        try:
+            if path == "/api/past/fetch":
+                init = past_gsm.parse_init(b.get("init", ""))
+                ft = int(b.get("max_ft", 72))
+                if ft not in past_gsm.FT_CHOICES:
+                    raise ValueError("予報時間が不正です")
+                started = start_update("past_gsm.py", ("fetch", init, "--max-ft", str(ft)))
+                self._json(200, {"started": started, **job_status()})
+            else:
+                init = past_gsm.valid_init_name(b.get("init", ""))
+                if job_status()["running"]:
+                    self._json(409, {"error": "取得・更新の実行中は削除できません"})
+                    return
+                r = past_gsm.delete(init, with_png=bool(b.get("png")))
+                self._json(200, {"deleted": r})
+        except ValueError as e:
+            self._json(400, {"error": str(e)})
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
-        if path not in ("/api/update", "/api/sync"):
+        if path not in ("/api/update", "/api/sync", "/api/past/fetch", "/api/past/delete"):
             self._json(404, {"error": "not found"})
             return
         if not self._local_only():
@@ -106,11 +145,15 @@ class Handler(SimpleHTTPRequestHandler):
         if origin and origin.split("://", 1)[-1] != self.headers.get("Host"):
             self._json(403, {"error": "不正なOriginです"})
             return
+        if path.startswith("/api/past/"):
+            self._past(path)
+            return
         started = start_update("sync_public.py", ()) if path == "/api/sync" else start_update()
         self._json(200, {"started": started, **job_status()})
 
     def end_headers(self):
-        if self.path.split("?", 1)[0].endswith((".json", ".html", ".js", ".css", "/")):
+        p = self.path.split("?", 1)[0]
+        if p.startswith("/api/") or p.endswith((".json", ".html", ".js", ".css", "/")):   # APIの状態は常に最新を返す
             self.send_header("Cache-Control", "no-cache")
         else:
             self.send_header("Cache-Control", "max-age=600")  # PNGは初期値ごとに別ファイル名のため短期キャッシュ可
