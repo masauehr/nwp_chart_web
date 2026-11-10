@@ -1,7 +1,7 @@
 # CLAUDE.md — nwp_chart_web
 
 ## 概要
-正式名称: **数値モデル天気図ビューア**（2026-11-06 に旧「ECMWF/GFS/AIFS天気図ビューア」から変更。リポジトリ名は nwp_chart_web のまま）。モデル表示名は ECMWF / GFS / AIFS / JMA GSM。画面の時刻表示はUTCのみ（JST併記なし）。通常版には画像の表示サイズ選択（既定「画面に収める」）と「同期」ボタンがある。
+正式名称: **数値モデル天気図ビューア**（2026-11-06 に旧「ECMWF/GFS/AIFS天気図ビューア」から変更。リポジトリ名は nwp_chart_web のまま）。モデル表示名は ECMWF / GFS / AIFS / JMA GSM / JRA-55（GSM・JRA-55 はローカル専用）。画面の時刻表示はUTCのみ（JST併記なし）。通常版には画像の表示サイズ選択（既定「画面に収める」）と「同期」ボタンがある。
 ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁GSM（ローカル専用）**から気象庁ビューア風の天気図PNGを作り、ブラウザ/公開サイトで閲覧する。GSM版 `gsm_chart_web` の多モデル・公開対応版。詳しくは [nwp-chart-web.md](nwp-chart-web.md)、方式は [DESIGN.md](DESIGN.md)、公開は [PUBLISH.md](PUBLISH.md)。
 
 ## 実行環境

@@ -6,7 +6,7 @@ ECMWF（IFS オープンデータ）・ECMWF AIFS（AI予報モデル）・NOAA 
 ## できること
 
 - 配信元から**必要な変数だけ**を部分取得（ECMWF 約19MB・GFS 約38MB/ステップ）して作図。GRIB2は作図後に削除し、残るのはPNGだけ。
-- 4モデル（ECMWF / ECMWF AIFS / NOAA GFS / **JMA GSM**）× 図種 13 × 地域 × 予報時間（既定 FT0〜72h）。IFS/AIFS/GFS は6時間毎・3地域。**GSM はローカル専用**で、全球0.5°（6時間毎・3地域）に加えて日本域0.125°（3時間毎・`japan3`/`okinawa3`）も作る。
+- 4モデル（ECMWF / ECMWF AIFS / NOAA GFS / **JMA GSM**）＋ローカル専用の再解析 **JRA-55**（アジア・日本域のみ。下記）× 図種 13 × 地域 × 予報時間（既定 FT0〜72h）。IFS/AIFS/GFS は6時間毎・3地域。**GSM はローカル専用**で、全球0.5°（6時間毎・3地域）に加えて日本域0.125°（3時間毎・`japan3`/`okinawa3`）も作る。
 - 通常版（1枚ずつ）と画用紙版（複数を並べる）。**モデル切替**と、**ECMWF と GFS の同時比較**（画用紙版の「モデル違い」）。
 - 公開用の静的サイトを `build_site.py` で組み立て可能（GitHub Pages 等）。
 
@@ -74,8 +74,8 @@ python make_charts.py ?                     # ヘルプ
 | `update_latest.py` | 各モデルの最新の揃った初期値を判定して `make_charts.py` を**モデルごとに別プロセスで並行**実行（画面ボタン・CI用）。`--sequential` で順次、`--keep N` で古いPNGを整理 |
 | `publish.py` | 公開ブランチ(gh-pages)へ反映。`--model M` でそのモデルの公開対象初期値（`nwp_data.MODELS` の `publish_hours`/`publish_keep`）＋画面ファイル、`--web-only` で**画像を作らず**画面ファイルだけ、`--pull` で公開済み画像を取り込み |
 | `build_site.py` | 公開用 `_site/`（web/ + output/）を組み立てる |
-| `server.py` | ローカルサーバー（`/`=web/、`/output/`、更新API、GSM過去分API `/api/past/*`）。既定ポート8790 |
-| `jra55_source.py` / `past_jra55.py` | JRA-55（ローカル専用・再解析）の取得（範囲読み込み）・読み込み・一覧・削除。画面の「過去分取得」（モデル=JRA-55）と同じ機能のCLI。テスト `tests/test_jra55.py`（20件） |
+| `server.py` | ローカルサーバー（`/`=web/、`/output/`、更新API、過去分取得API `/api/past/*`＝GSM・JRA-55）。既定ポート8790 |
+| `jra55_source.py` / `past_jra55.py` | JRA-55（ローカル専用・再解析）の取得（範囲読み込み）・読み込み・一覧・削除。画面の「過去分取得」（モデル=JRA-55）と同じ機能のCLI。テスト `tests/test_jra55.py`（22件） |
 | `past_gsm.py` | GSM（ローカル専用）の過去の初期値の取得・一覧・削除。画面の「過去分取得」ボタンと同じ機能のCLI。テスト `tests/test_past_gsm.py`（16件） |
 | `web/` | 通常版 / `web/board/` 画用紙版（相対パスなので静的サイトのサブパスでも動く） |
 | `.github/workflows/update-model.yml` | GitHub Actions: **モデルごとに別ジョブで並行**して作図→公開ブランチへ反映（cron 1日11回／手動でモデル指定可） |
@@ -169,6 +169,7 @@ GitHub Actions の取得時刻（cron）を推測でなく実測で決めるた�
 - **jet100（100hPaジェット）をGSM（ローカル）に追加**（2026-11-10。JRA-55にも同じ図が出る＝同じ描画関数・100hPaがあるため）。`gsm_source.PLEVELS` に100を追加（GRIB2に入っているので再取得は不要）。表示は tenkizu の `GSM_100hPa.py` と同じ（風速を YlOrRd で塗り 20〜120kt・20kt毎、青の等風速線、黒の等高度線 60m毎、黒の風矢羽。気温の線は描かない。2026-11-10 に当初の jet300 風の見た目から変更）。他モデルは100hPaを取得しないので作られない。既存の初期値へは `make_charts.py gsm INIT --charts jet100 --regions asia`。
 
 ## 公開する初期値を約2日分に変更（2026-11-05）
+> ※ 2026-11-10 に ECMWF の公開を 6→5 個に変更（上の「200hPa ジェット・300hPa 湿数を追加、ECMWF の公開を5個に」参照）。以下は 11/5 時点の記述。
 - **ECMWF: 00/12/18UTC の最新6初期値、GFS・AIFS: 00/12UTC の最新4初期値**（06UTC は公開しない）。1初期値は約53〜75MB で、合計約0.9GB（Pages 1GB 目安以内。8初期値や全モデル6初期値は約1.2〜1.6GBで超過）。
 - 設定は `nwp_data.MODELS` の `publish_hours` / `publish_keep`。`publish.py` は時刻で絞って keep 個を公開、`update_latest.py` は既定でその時刻の初期値だけを作る（`--init-hours 0 6 12 18` で上書き）。cron は変更なし。
 - 公開側は CI が1回に1初期値ずつ追加するため、約2日かけて目標の個数に達する。**手元で `publish.py --model M` を実行する場合、手元の output/ に不完全な古い初期値（一部の図種だけ等）があるとそれも公開されるので、先に `--pull` するか不完全な初期値を除くこと。**

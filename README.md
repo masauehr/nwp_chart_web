@@ -92,6 +92,16 @@ cd ~/projects/nwp_chart_web
 - 地表気圧(PRES)で、地面より下の等圧面をマスクする（JRA-55は地面下を外挿値で埋めているため）。
 - 手元の月ファイル（tenkizu の `data/Jra55` と同じ構成）があれば、環境変数 `JRA55_RAW_DIR` で優先して読める（読み取りのみ。削除しない）。
 
+### 登録している launchd（一覧・ローカルのみ）
+`launchd/` の雛形を `~/Library/LaunchAgents/` に置いて登録します（登録はユーザーが行う）。
+
+| ラベル | 内容 | 間隔 |
+|---|---|---|
+| `com.masahiro.nwp_chart_web_gsm` | GSM（00/12UTC）の自動取得・作図（3日より古い分は削除。手動取得分は除く） | 1時間おき |
+| `com.masahiro.nwp_chart_web_sync` | 公開側で作られた画像を手元へ取り込む（`sync_public.py`） | 30分おき |
+| `com.masahiro.nwp_chart_web_availability` | 配信時刻の実測を記録（`check_availability.py`。cron時刻の根拠） | 10分おき |
+| `com.masahiro.nwp_chart_web_token_notify` | cron-job.org 用トークンの期限をSlack DMで通知（2027-02-08 の14日前から。`CRON_JOB_ORG.md`） | 毎日9:05 |
+
 ### GSM の自動取得（00/12UTC のみ・ローカル）
 GSM は **00UTC と 12UTC の初期値だけ**を、launchd で自動取得・作図します（06/18UTC は手動）。ECMWF・GFS・AIFS は公開サイト側（GitHub Actions）が更新するので、この自動取得の対象は GSM だけです。
 
