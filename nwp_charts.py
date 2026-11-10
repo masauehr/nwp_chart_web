@@ -42,7 +42,7 @@ REGIONS = {
     "japan": dict(label="日本周辺", kind="lcc", center=(133.0, 36.0), width_km=4400,
                   bbox=(95, 180, 5, 68), barb_n=20, coast="10m", zoom=2),
     "okinawa": dict(label="沖縄周辺", kind="pc", center=(128.0, 27.0), width_deg=24.0,
-                    bbox=(105, 152, 8, 46), barb_n=16, coast="10m", zoom=3),
+                    bbox=(105, 152, 8, 46), barb_n=16, coast="10m", zoom=3, exclude=("jra55",)),   # JRA-55は1.25°と粗いので作らない
     "asia": dict(label="東アジア広域", kind="lcc", center=(115.0, 33.0), width_km=8600,
                  bbox=(55, 180, -8, 80), barb_n=24, coast="50m", zoom=1),
     # GSM 日本域 0.125°（Rjp, 3時間毎）。データ範囲は 120-150E, 20-50N。**GSM（ローカル専用）だけ**が持つ地域
@@ -55,7 +55,8 @@ REGIONS = {
 
 def regions_for(model):
     """そのモデルで作れる地域（地域の models 指定があればそのモデルだけ。無ければ全モデル共通）。"""
-    return [k for k, v in REGIONS.items() if "models" not in v or model in v["models"]]
+    return [k for k, v in REGIONS.items()
+            if ("models" not in v or model in v["models"]) and model not in v.get("exclude", ())]
 
 
 def make_projection(region):
@@ -489,7 +490,7 @@ CHARTS = {
     "t850": dict(label="850hPa（気温・湿数・風）", fn=chart_t850),
     "t925": dict(label="925hPa（気温・湿数・風）", fn=chart_t925),
     "t975": dict(label="975hPa（気温・湿数・風）", fn=chart_t975, levels=[975]),
-    "tenki": dict(label="地上（天気・気圧・SSI）", fn=chart_tenki),
+    "tenki": dict(label="地上（天気・気圧・SSI）", fn=chart_tenki, cloud=True),   # cloud: 雲量が要る（JRA-55には無いので作らない）
     "surf": dict(label="地上（気圧・風・降水）", fn=chart_surf),
 }
 
@@ -568,7 +569,8 @@ def render_chart(chart, region, F, init, ft, outpath, model="", quantize=True):
             family="serif", color="red", va="top", ha="right", zorder=30)
     ax.text(0.985, 0.915, "JST", transform=ax.transAxes, fontsize=9, family="serif",
             color="red", va="top", ha="right", zorder=30)
-    ax.text(0.006, 0.012, f"{model} INIT:{init:%m/%d %H:%M}(UTC)".strip(), transform=ax.transAxes, fontsize=10,
+    stamp = f"ANAL:{init:%Y/%m/%d %H:%M}" if F.get("no_cloud") else f"INIT:{init:%m/%d %H:%M}"   # 解析値(JRA-55)は年も出す（昔の日付のため）
+    ax.text(0.006, 0.012, f"{model} {stamp}(UTC)".strip(), transform=ax.transAxes, fontsize=10,
             color="k", va="bottom", zorder=30)
 
     _caption(fig, [(f"{init:%d%H}", "#1010e0", 17), (f"<{ft}>", "#d020d0", 17),

@@ -43,7 +43,7 @@ def log(msg):
 def parse_args():
     p = argparse.ArgumentParser(description="最新の初期値を取得して作図する",
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
-    p.add_argument("--models", nargs="+", default=list(nwp_data.MODELS), choices=list(nwp_data.MODELS))
+    p.add_argument("--models", nargs="+", default=nwp_data.auto_models(), choices=list(nwp_data.MODELS))   # JRA-55は自動更新の対象外
     p.add_argument("--max-ft", type=int, default=72)
     p.add_argument("--interval", type=int, default=None, help="FT間隔[h]（既定: モデルごと。GSMは3、他は6）")
     p.add_argument("--jobs", type=int, default=2, help="作図の並列数")

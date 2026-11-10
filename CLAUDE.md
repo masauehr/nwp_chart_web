@@ -19,7 +19,14 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - GSMはRISHからファイル全体を取得し、`data/gsm/` に**残す**（作図のたびには削除しない。3日超は自動取得の `--keep-days` が消す。取得済みの `gsm_chart_web/data/gsm` は `--data-dir` で再利用）。既定のFT間隔は3（日本域0.125°が3時間毎）。地域 `japan3`/`okinawa3` はGSM専用（`REGIONS` の `models`/`src`）。
 - GSM は launchd（`launchd/*.plist`、`~/Library/LaunchAgents/`）で 00/12UTC のみ自動取得。`--init-hours 0 12 --keep-days 3` で3日より古い PNG/GRIB2 を削除（実測 初回13分42秒）。
 - `gsm_source.py` は `gsm_chart_web/gsm_data.py` のコピー（共通部品化しない）。
-- **GSMの過去の初期値**は画面の「GSM過去分」ボタン（`past_gsm.py`・`/api/past/*`）で手動取得。取得分は `output/gsm/<初期値>/.keep` の目印で自動削除（`--keep-days`/`--keep`）から除外される。GRIB2・画像は画面の一覧から手動で削除する（2回押し）。APIは `_local_only`・同一Originのみ・`no-cache`（外さない）。
+- **GSMの過去の初期値**は画面の「過去分取得」ボタン（`past_gsm.py`・`/api/past/*`）で手動取得。取得分は `output/gsm/<初期値>/.keep` の目印で自動削除（`--keep-days`/`--keep`）から除外される。GRIB2・画像は画面の一覧から手動で削除する（2回押し）。APIは `_local_only`・同一Originのみ・`no-cache`（外さない）。
+
+## JRA-55（ローカル専用・再解析）
+- `nwp_data.MODELS["jra55"]`（`local_only`・`auto=False`）。公開しない（`publish.py`・`sync_public.py`・`build_site.py` の除外は GSM と同じ仕組み）。**自動更新（`update_latest.py`）の対象外**（`nwp_data.auto_models()`）。
+- 「初期値」＝有効時刻（解析値・FT0のみ・6時間毎）。取得は `jra55_source.py`（RISHの月ファイルを `#mode=bytes` で必要な時刻・気圧面だけ範囲読み込み→`data/jra55/YYYYMMDDHH.npz`）。**認証は不要**（2026-11-10確認）。取得・一覧・削除は画面の「過去分取得」（モデル=JRA-55）と `past_jra55.py`。
+- 地域は **アジア・日本のみ**（`REGIONS` の `exclude`。沖縄域は作らない）。雲量が無いので `tenki`（`cloud=True`）は作らない。降水が無いので地上図は気圧・風のみ。キャプションは年も出す（`ANAL:`）。
+- 地面下は外挿値で埋まっているので、`sp`（地表気圧 PRES）でマスクする。`w` は VVEL（無ければ0）。月ファイルの時間チャンクは20時刻（5日）で、同じ日の取得はほぼ追加コストなし。
+- `JRA55_RAW_DIR`（任意）に月ファイルのコピーがあれば優先して読む（読み取りのみ。削除しない）。
 
 ## 取得時刻の実測
 - `check_availability.py`（10分おき・launchd、登録はユーザーが行う）が各初期値の配信時刻を `logs/availability.csv` に記録。`--report` で集計。cron を決める根拠にする（2026-11-10 に実測から決定: UTC 1/4/6/7/9/18/20/22/23時）。

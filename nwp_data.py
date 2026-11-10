@@ -41,12 +41,20 @@ MODELS = {
     "aifs": dict(label="AIFS", publish_hours=(0, 12), publish_keep=4),
     # 気象庁GSM（京大RISH配信）。**ローカル専用**: 公開サイト（gh-pages）には載せない。publish.py と CI の対象から除外する
     "gsm": dict(label="JMA GSM", local_only=True),
+    # 気象庁JRA-55 再解析（京大RISH配信・1.25°・6時間毎）。**ローカル専用**。「初期値」は有効時刻（解析値）でFT0のみ。
+    # auto=False: 自動更新(update_latest)の対象外（過去の時刻を画面または past_jra55.py で取得する）
+    "jra55": dict(label="JRA-55", local_only=True, auto=False, analysis=True),
 }
 
 
 def public_models():
     """公開サイトに載せてよいモデル（local_only でないもの）。"""
     return [m for m, v in MODELS.items() if not v.get("local_only")]
+
+
+def auto_models():
+    """自動更新(update_latest)の対象モデル（auto=False のもの＝JRA-55 などは除く）。"""
+    return [m for m, v in MODELS.items() if v.get("auto", True)]
 
 
 def default_interval(model: str) -> int:

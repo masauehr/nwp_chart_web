@@ -25,6 +25,7 @@ from pathlib import Path
 import nwp_data
 import nwp_charts
 import gsm_source
+import jra55_source
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT_DIR = ROOT / "output"
@@ -33,7 +34,7 @@ OUTPUT_DIR = ROOT / "output"
 def parse_args():
     p = argparse.ArgumentParser(description="ECMWF / GFS / AIFS / GSM から天気図PNGを作成する",
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
-    p.add_argument("model", nargs="?", choices=list(nwp_data.MODELS), help="ecmwf / gfs / aifs / gsm（gsm はローカル専用）")
+    p.add_argument("model", nargs="?", choices=list(nwp_data.MODELS), help="ecmwf / gfs / aifs / gsm / jra55（gsm・jra55 はローカル専用）")
     p.add_argument("init_time", nargs="?", help="初期時刻 YYYYMMDDHH（UTC）。--latest 指定時は省略可")
     p.add_argument("--latest", action="store_true", help="必要な予報時間が全部揃った最新の初期値を自動検索する")
     p.add_argument("--max-ft", type=int, default=72, help="作成する最大予報時間[h]（既定: 72）")
@@ -48,6 +49,7 @@ def parse_args():
     p.add_argument("--dl-jobs", type=int, default=4, help="ダウンロードの並列数（既定: 4）")
     p.add_argument("--keep-data", action="store_true", help="作図後も取得GRIB2を残す（GSMは常に残す）")
     p.add_argument("--no-download", action="store_true", help="ダウンロードせず手元のファイルだけ使う")
+    p.add_argument("--days", type=int, default=1, help="JRA-55 のみ: init_time から何日分（6時間毎）を作るか（既定: 1）")
     p.add_argument("--manifest-only", action="store_true", help="manifest.json の更新だけ行う")
     if any(a in sys.argv[1:] for a in ("?", "-?", "--?")):
         p.print_help()
@@ -71,7 +73,15 @@ def _render_ft(args):
     d = Path(data_dir)
     cache = {}  # データ系統（GSMの main/rjp）ごとに1回だけ読む
 
-    if model == "gsm":
+    if model == "jra55":
+        F0 = jra55_source.load(init_s)          # 有効時刻ごとのキャッシュ(npz)。init_s は有効時刻、FTは0のみ
+        if F0 is None:
+            return ft, 0, "データなし"
+
+        def fields(region):
+            return F0
+        path = None
+    elif model == "gsm":
         def fields(region):
             src = nwp_charts.REGIONS[region].get("src", "main")
             if src not in cache:
@@ -103,6 +113,8 @@ def _render_ft(args):
         for chart in charts:
             if region not in nwp_charts.CHARTS[chart].get("regions", (region,)):
                 continue  # 図種ごとに作る地域を限っている（容量のため。jet200・t300はアジア域のみ）
+            if nwp_charts.CHARTS[chart].get("cloud") and F.get("no_cloud"):
+                continue  # 雲量が無いデータ（JRA-55）では天気図は作らない
             if any(lv not in F["p"] for lv in nwp_charts.CHARTS[chart].get("levels", [])):
                 continue  # このモデルに無い気圧面（ECMWF/AIFS/GSM全球の975hPa）はスキップ
             try:
@@ -167,9 +179,42 @@ def write_manifest(output_dir=None, public_only=False):
     print("manifest.json 更新: " + summary, flush=True)
 
 
+def build_jra55(a):
+    """JRA-55 の有効時刻（init_time から --days 日分・6時間毎）を取得して作図する（FT0のみ）。"""
+    try:
+        times = jra55_source.times_from(a.init_time, a.days) if a.init_time else []
+    except ValueError as e:
+        print("エラー:", e, flush=True)
+        return 2
+    if not times:
+        print("エラー: JRA-55 は有効時刻 YYYYMMDDHH（UTC・00/06/12/18時）を指定してください（--latest は使えません）", flush=True)
+        return 2
+    if a.no_download:
+        ok = [t for t in times if jra55_source.have(t)]
+    else:
+        ok = jra55_source.fetch(times, workers=max(1, a.dl_jobs), log=lambda m: print(m, flush=True))
+    if not ok:
+        print("JRA-55: 取得できた時刻がありません", flush=True)
+        return 1
+    print(f"jra55: 作図します（{len(ok)} 時刻）", flush=True)
+    tasks = [("jra55", t, 0, a.charts, a.regions, str(a.data_dir), 6, True) for t in ok]
+    results = []
+    if a.jobs > 1:
+        with ProcessPoolExecutor(max_workers=a.jobs) as ex:
+            for r in ex.map(_render_ft, tasks):
+                results.append(r)
+    else:
+        results = [_render_ft(tk) for tk in tasks]
+    total = sum(r[1] for r in results)
+    print(f"完了(jra55): {total} 枚 → {OUTPUT_DIR / 'jra55'}", flush=True)
+    return 0 if total else 1
+
+
 def build(a):
     """1モデル・1初期値を作る。"""
     model = a.model
+    if model == "jra55":
+        return build_jra55(a)
     data_dir = Path(a.data_dir)
     if model == "gsm" and a.data_dir == str(nwp_data.DEFAULT_DATA_DIR):
         data_dir = nwp_data.DEFAULT_DATA_DIR / "gsm"  # GSMは元のファイル名のまま data/gsm/ に置く（削除しない）

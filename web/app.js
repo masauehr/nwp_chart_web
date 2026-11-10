@@ -492,10 +492,12 @@
     pollUpdate();
   };
 
-  // ---------- GSM過去分（過去の初期値の取得・一覧・削除。サーバーの /api/past/* を呼ぶ）
+  // ---------- 過去の初期値（GSM・JRA-55）の取得・一覧・削除。サーバーの /api/past/* を呼ぶ（ローカルサーバーのときだけ）
   const pastRows = $("pastTbl").tBodies[0];
+  const pastModel = () => $("pastModel").value;                      // "gsm" | "jra55"
   const pastBtn = (text, onclick) => { const b = document.createElement("button"); b.textContent = text; b.onclick = onclick; return b; };
-  const fmtGb = (mb) => (mb >= 1000 ? (mb / 1000).toFixed(2) + "GB" : Math.round(mb) + "MB");
+  const fmtGb = (mb) => (mb >= 1000 ? (mb / 1000).toFixed(2) + "GB" : Math.round(mb * 10) / 10 + "MB");
+  let pastData = null;                                                // 直近の /api/past/list の結果
 
   // 削除は2段階: 1回目で「本当に削除」に変わり、4秒以内にもう一度押すと実行する（誤操作防止）
   function deleteBtn(label, init, png) {
@@ -507,9 +509,9 @@
       }
       b.disabled = true;
       try {
-        const r = await fetch(API + "past/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ init, png }) });
+        const r = await fetch(API + "past/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: pastModel(), init, png }) });
         const j = await r.json();
-        $("pastMsg").textContent = r.ok ? `削除しました: ${init}（GRIB2 ${j.deleted.grib}個${png ? "、画像 " + j.deleted.png + "枚" : ""}）` : (j.error || "削除できません");
+        $("pastMsg").textContent = r.ok ? `削除しました: ${init}（データ ${j.deleted.grib}件${png ? "、画像 " + j.deleted.png + "枚" : ""}）` : (j.error || "削除できません");
       } catch (e) { $("pastMsg").textContent = "削除できません"; }
       await loadPast();
       if (png) reloadManifest();
@@ -517,33 +519,66 @@
     return b;
   }
 
-  async function loadPast() {
-    let j;
-    try { j = await (await fetch(API + "past/list", { cache: "no-store" })).json(); } catch (e) { $("pastMsg").textContent = "一覧を取得できません"; return; }
-    const sel = $("pastFt");
-    if (!sel.options.length) for (const f of j.ft_choices) sel.add(new Option(`${f}時間`, f, false, f === 72));
+  const initLabel = (s) => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)} ${s.slice(8, 10)}Z`;
+
+  function renderPast() {
+    const j = pastData; if (!j) return;
+    const jra = pastModel() === "jra55";
+    // 行を共通の形にそろえる: {init, data(表示), has(データがあるか), png_count, png_mb, manual}
+    const rows = jra
+      ? j.jra55.map((r) => ({ init: r.init, has: r.has_data, data: `${fmtGb(r.data_mb)}`, png_count: r.png_count, png_mb: r.png_mb, manual: true }))
+      : j.inits.map((r) => ({ init: r.init, has: r.grib_files > 0, data: `${r.grib_files}個 ${fmtGb(r.grib_mb)}`, png_count: r.png_count, png_mb: r.png_mb, manual: r.manual }));
+    $("pastHead").textContent = jra ? "データ" : "GRIB2";
+    $("pastHeadMan").textContent = jra ? "" : "手動";
     pastRows.innerHTML = "";
-    for (const r of j.inits) {
+    for (const r of rows) {
       const tr = pastRows.insertRow();
-      tr.insertCell().textContent = `${r.init.slice(0, 4)}-${r.init.slice(4, 6)}-${r.init.slice(6, 8)} ${r.init.slice(8, 10)}Z`;
-      tr.insertCell().textContent = r.grib_files ? `${r.grib_files}個 ${fmtGb(r.grib_mb)}` : "—";
+      tr.insertCell().textContent = initLabel(r.init);
+      tr.insertCell().textContent = r.has ? r.data : "—";
       tr.insertCell().textContent = r.png_count ? `${r.png_count}枚 ${fmtGb(r.png_mb)}` : "—";
-      tr.insertCell().textContent = r.manual ? "○" : "";
+      tr.insertCell().textContent = !jra && r.manual ? "○" : "";
       const c = tr.insertCell();
-      if (r.grib_files) c.appendChild(deleteBtn("GRIB2削除", r.init, false));
+      if (r.has) c.appendChild(deleteBtn(jra ? "データ削除" : "GRIB2削除", r.init, false));
       c.appendChild(deleteBtn("すべて削除", r.init, true));
     }
-    const g = j.inits.reduce((a, r) => a + r.grib_mb, 0), p = j.inits.reduce((a, r) => a + r.png_mb, 0);
-    $("pastTotal").textContent = `合計: GRIB2 ${fmtGb(g)}、画像 ${fmtGb(p)}。「○」は手動取得（自動削除されません）。「すべて削除」は画像・目印も消します。`;
+    const gsmG = j.inits.reduce((a, r) => a + r.grib_mb, 0);
+    const p = rows.reduce((a, r) => a + r.png_mb, 0);
+    $("pastTotal").textContent = jra
+      ? `合計: データ ${fmtGb(j.jra55.reduce((a, r) => a + r.data_mb, 0))}、画像 ${fmtGb(p)}。JRA-55は自動では削除されません。「すべて削除」は画像も消します。`
+      : `合計: GRIB2 ${fmtGb(gsmG)}、画像 ${fmtGb(p)}。「○」は手動取得（自動削除されません）。「すべて削除」は画像・目印も消します。`;
     $("pastGo").disabled = !!j.running;
   }
 
+  // モデルの切り替え: 予報時間(GSM)／日数(JRA-55)・説明文・日付の範囲を切り替える
+  function applyPastModel() {
+    const jra = pastModel() === "jra55";
+    $("pastFtBox").hidden = jra; $("pastDaysBox").hidden = !jra;
+    $("pastNoteGsm").hidden = jra; $("pastNoteJra").hidden = !jra;
+    $("pastDate").min = jra ? "1958-01-01" : ""; $("pastDate").max = jra ? "2023-12-31" : new Date().toISOString().slice(0, 10);
+    const v = $("pastDate").value;
+    if (jra && !(v >= "1958-01-01" && v <= "2023-12-31")) $("pastDate").value = "1959-09-26";          // 例: 伊勢湾台風の頃
+    if (!jra && v > new Date().toISOString().slice(0, 10) || (!jra && v < "2000-01-01")) $("pastDate").value = new Date(Date.now() - 3 * 86400e3).toISOString().slice(0, 10);
+    renderPast();
+  }
+
+  async function loadPast() {
+    let j;
+    try { j = await (await fetch(API + "past/list", { cache: "no-store" })).json(); } catch (e) { $("pastMsg").textContent = "一覧を取得できません"; return; }
+    pastData = j;
+    for (const [id, vals, def] of [["pastFt", j.ft_choices, 72], ["pastDays", j.days_choices, 1]]) {
+      const sel = $(id);
+      if (!sel.options.length) for (const f of vals) sel.add(new Option(id === "pastFt" ? `${f}時間` : `${f}日`, f, false, f === def));
+    }
+    renderPast();
+  }
+
+  $("pastModel").onchange = applyPastModel;
   $("btnPast").onclick = () => {
     const d = new Date(Date.now() - 3 * 86400e3);   // 既定は3日前（自動取得の範囲より古い日）
     if (!$("pastDate").value) $("pastDate").value = d.toISOString().slice(0, 10);
-    $("pastDate").max = new Date().toISOString().slice(0, 10);
     $("pastMsg").textContent = "";
     $("pastDlg").showModal();
+    applyPastModel();
     loadPast();
   };
   $("pastClose").onclick = () => $("pastDlg").close();
@@ -551,11 +586,13 @@
   $("pastGo").onclick = async () => {
     const date = $("pastDate").value.replace(/-/g, "");
     if (date.length !== 8) { $("pastMsg").textContent = "日付を指定してください"; return; }
+    const jra = pastModel() === "jra55";
     $("pastGo").disabled = true;
     $("pastMsg").textContent = "取得を開始しています…";
+    const body = { model: pastModel(), init: date + $("pastHour").value };
+    if (jra) body.days = +$("pastDays").value; else body.max_ft = +$("pastFt").value;
     try {
-      const r = await fetch(API + "past/fetch", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ init: date + $("pastHour").value, max_ft: +$("pastFt").value }) });
+      const r = await fetch(API + "past/fetch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const j = await r.json();
       if (!r.ok) { $("pastMsg").textContent = j.error || "開始できません"; $("pastGo").disabled = false; return; }
       if (!j.started) { $("pastMsg").textContent = "別の取得・更新が実行中です。終わってからやり直してください"; $("pastGo").disabled = false; return; }
