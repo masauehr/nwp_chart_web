@@ -33,6 +33,11 @@ main { max-width:1000px; margin:0 auto; padding:10px 16px 24px; }
 #pastTbl th:first-child, #pastTbl td:first-child { text-align:left; }
 #pastTbl button { padding:2px 8px; font-size:12px; margin-left:4px; }
 #pastTbl button.sure { background:#c0392b; color:#fff; border-color:#c0392b; }
+.updInfo { margin:8px 0; font-size:12px; color:#445; }
+.updInfo summary { cursor:pointer; color:var(--accent); }
+.updInfo table { border-collapse:collapse; margin:6px 0; }
+.updInfo th, .updInfo td { border:1px solid var(--line); padding:3px 8px; text-align:left; }
+.updInfo p { margin:4px 0; }
 .nodata[hidden] { display:none; }
 .nodata { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:12px; text-align:center; background:#fff; color:#778; }
 /* 2モデル比較: 左右に並べる（狭い画面では縦に積む） */
