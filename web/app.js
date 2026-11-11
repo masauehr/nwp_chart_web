@@ -619,5 +619,18 @@
     } catch (e) { /* 無視 */ }
   });
 
-  boot().then(pollUpdate); // 画面を開いた時に更新中なら進捗表示を再開
+  // 自由選択（断面図・エマグラム）のリンク: ローカルなら作図できるページ、公開サイトなら公開された図があるときだけ出す
+  async function showCustomLink() {
+    const a = $("lnkCustom");
+    try {
+      const j = await (await fetch(API + "custom/list", { cache: "no-store" })).json();
+      if (Array.isArray(j.items)) { a.textContent = "自由選択（断面図・エマグラム）"; a.hidden = false; return; }
+    } catch (e) { /* 公開サイトにはこの API が無い */ }
+    try {
+      const j = await (await fetch(OUT + "custom/list.json", { cache: "no-store" })).json();
+      if (j.items && j.items.length) { a.textContent = "保存された断面図・エマグラム"; a.hidden = false; }
+    } catch (e) { /* 公開された図が無い */ }
+  }
+
+  boot().then(pollUpdate).then(showCustomLink); // 画面を開いた時に更新中なら進捗表示を再開
 })();

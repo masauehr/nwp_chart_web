@@ -542,15 +542,16 @@ def base_lines(region, proj):
 
 
 # ---------------------------------------------------------------- 枠・見出し
-def _caption(fig, parts, y):
-    """色の違う文字を横に並べる（実際の描画幅で位置を決める）。"""
+def _caption(fig, parts, y, fw=None, fh=None):
+    """色の違う文字を横に並べる（実際の描画幅で位置を決める）。fw: 図の幅[インチ]（省略時は FIG_W）。"""
     r = fig.canvas.get_renderer()
-    x = 4 / (FIG_W * DPI)
+    fw = fw or FIG_W
+    x = 4 / (fw * DPI)
     for text, color, fs in parts:
         t = fig.text(x, y, text, color=color, fontsize=fs, family="serif",
                      va="center", ha="left")
         bb = t.get_window_extent(r)
-        x += bb.width / (FIG_W * DPI) + 8 / (FIG_W * DPI)
+        x += bb.width / (fw * DPI) + 8 / (fw * DPI)
 
 
 def render_chart(chart, region, F, init, ft, outpath, model="", quantize=True):

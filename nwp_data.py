@@ -128,6 +128,8 @@ def legal_text(model: str, year: int, accessed: str) -> dict:
 ECM_BASE = "https://data.ecmwf.int/forecasts"
 GFS_BASE = "https://noaa-gfs-bdp-pds.s3.amazonaws.com"
 
+# 自由選択（断面図・エマグラム）用の気圧面。鉛直の解像度のため、自動更新（PLEVELS）より多い。自動更新の取得量は増やさない
+CUSTOM_PLEVELS = (1000, 975, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100)
 PLEVELS = (975, 925, 850, 700, 500, 300, 200)  # 存在する面だけが使われる（ECMWFオープンデータに975は無い）。200hPaはjet200用
 
 # 読み込み時に切り出す範囲（全地域の bbox の和集合に余白を足したもの）。全球のまま処理すると遅い
@@ -211,9 +213,9 @@ def _ecmwf_rows(model, init, ft):
     return [json.loads(l) for l in r.text.splitlines() if l.strip()]
 
 
-def _ecmwf_select(rows, model="ecmwf"):
+def _ecmwf_select(rows, model="ecmwf", plevels=None):
     """必要なメッセージの (offset, length) を返す。AIFSは相対湿度 r が無いので比湿 q も取る。"""
-    pl = {str(l) for l in PLEVELS}
+    pl = {str(l) for l in (plevels or PLEVELS)}
     pvars = ("gh", "t", "u", "v", "r", "w") + (("q",) if model == "aifs" else ())
     out = []
     for r in rows:
@@ -225,7 +227,7 @@ def _ecmwf_select(rows, model="ecmwf"):
     return out
 
 
-def _gfs_select(init, ft):
+def _gfs_select(init, ft, plevels=None):
     r = requests.get(index_url("gfs", init, ft), headers=HEADERS, timeout=60)
     r.raise_for_status()
     lines = r.text.strip().splitlines()
@@ -235,7 +237,7 @@ def _gfs_select(init, ft):
         off = int(p[1])
         nxt = int(lines[i + 1].split(":")[1]) if i + 1 < len(lines) else None
         rows.append((p[3], p[4], p[5], off, None if nxt is None else nxt - off))
-    lv = {f"{x} mb" for x in PLEVELS}
+    lv = {f"{x} mb" for x in (plevels or PLEVELS)}
     out, apcp = [], []
     for var, level, desc, off, ln in rows:
         if var in ("HGT", "TMP", "UGRD", "VGRD", "RH", "VVEL") and level in lv:
@@ -299,13 +301,13 @@ def _download_ranges(url: str, ranges, dest: Path) -> Path | None:
         return None
 
 
-def fetch_subset(model: str, init: datetime, ft: int, data_dir: Path = DEFAULT_DATA_DIR) -> Path | None:
-    """必要な変数だけを取得して data_dir/{model}/{初期値}/f{FFF}.grib2 に保存。既存ならスキップ。"""
+def fetch_subset(model: str, init: datetime, ft: int, data_dir: Path = DEFAULT_DATA_DIR, plevels=None) -> Path | None:
+    """必要な変数だけを取得して data_dir/{model}/{初期値}/f{FFF}.grib2 に保存。既存ならスキップ。plevels: 気圧面（省略時は PLEVELS）。"""
     dest = Path(data_dir) / model / f"{init:%Y%m%d%H}" / f"f{ft:03d}.grib2"
     if dest.exists() and dest.stat().st_size > 0:
         return dest
     try:
-        sel = _ecmwf_select(_ecmwf_rows(model, init, ft), model) if model in ECMWF_LIKE else _gfs_select(init, ft)
+        sel = _ecmwf_select(_ecmwf_rows(model, init, ft), model, plevels) if model in ECMWF_LIKE else _gfs_select(init, ft, plevels)
     except requests.RequestException as e:
         print(f"  索引の取得に失敗 {model} FT{ft}: {e}")
         return None
@@ -329,7 +331,7 @@ def fetch_tp_only(init: datetime, ft: int, data_dir: Path = DEFAULT_DATA_DIR, mo
 
 
 # ------------------------------------------------------------------ 読み込み
-def _read(path: Path):
+def _read(path: Path, plevels=None):
     """GRIB2 を走査し、(key→2次元配列, lats, lons) を返す。範囲を CROP に切り出す。"""
     import numpy as np
     import pygrib
@@ -346,7 +348,7 @@ def _read(path: Path):
         for m in grbs:
             sn, tl, lv = m.shortName, m.typeOfLevel, m.level
             key = None
-            if tl == "isobaricInhPa" and sn in ("gh", "t", "u", "v", "r", "w", "q") and lv in PLEVELS:
+            if tl == "isobaricInhPa" and sn in ("gh", "t", "u", "v", "r", "w", "q") and lv in (plevels or PLEVELS):
                 key = ("p", lv, sn)
             elif tl == "heightAboveGround" and lv == 2 and sn in ("2r",):
                 continue
@@ -380,7 +382,7 @@ def _read(path: Path):
 
 
 def load_fields(model: str, path: Path, tp_prev_path: Path | None = None, interval: int = 6,
-                tp_prev_zero: bool = False) -> dict:
+                tp_prev_zero: bool = False, plevels=None) -> dict:
     """取得済みの小さなGRIB2を gsm_chart_web と同形式の辞書にする。
 
     tp_prev_path: ECMWFの1つ前の予報時間の積算降水(tp)。tp_prev_zero: 最初の区間なら True（積算0を前とみなす）。
@@ -388,7 +390,7 @@ def load_fields(model: str, path: Path, tp_prev_path: Path | None = None, interv
              "p": {975..300: {"gh"(m),"t"(℃),"u","v","r"(%),"w"(hPa/h)}}}
     """
     import numpy as np
-    d = _read(Path(path))
+    d = _read(Path(path), plevels)
     F = {"p": {}, "lats": d["lats"], "lons": d["lons"], "rr": None, "rr_h": interval}
     F["msl"] = d["msl"] / 100.0
     F["sp"] = d["sp"] / 100.0
