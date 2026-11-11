@@ -12,7 +12,7 @@
   const OUT = "output/";
   const API = "api/";
   const HOUR = 3600e3;
-  const S = { manifest: null, model: null, model2: null, cmp: false, init: null, region: null, chart: null, ft: 0, timer: null };
+  const S = { manifest: null, local: false, model: null, model2: null, cmp: false, fig: false, region2: null, chart2: null, init: null, region: null, chart: null, ft: 0, timer: null };
   const cache = new Map(); // 先読み画像（再生を滑らかにする）
 
   const imgUrl = (model, init, region, chart, ft) =>
@@ -98,10 +98,50 @@
   }
   const fts = () => [...new Set(shownModels().flatMap(modelFts))].sort((a, b) => a - b);
 
+  // ---------- 別の図を並べる: 右に、同じモデル・初期値・予報時間の別の地域の図、またはローカルの自由選択で作った図（直近10件）を出す。
+  // 自由選択の一覧は、サーバー（/api/custom/list）が output/custom/ の画像ファイルから作る（ブラウザの保存には頼らない）。
+  // 公開サイトでは、作者が公開した直近10件の一覧（output/custom/list.json）を読む（閲覧のみ）
+  let customCache = [];
+  const customList = () => customCache;
+  async function loadCustom() {                        // ローカルサーバーから取得できたか（＝ローカルか）を返す
+    try {
+      const j = await (await fetch(API + "custom/list", { cache: "no-store" })).json();
+      if (Array.isArray(j.items)) { customCache = j.items; return true; }
+    } catch (e) { /* 公開サイトにはこの API が無い */ }
+    try {
+      const j = await (await fetch(OUT + "custom/list.json", { cache: "no-store" })).json();
+      customCache = Array.isArray(j.items) ? j.items : [];
+    } catch (e) { customCache = []; }
+    return false;
+  }
+  const customBase = (c) => c.url.split("/").pop();    // 画像のファイル名（選択欄の値・URLの chart2 に使う）
+  const customFind = (chart) => { const l = customList(); return chart === "last" ? (l[0] || null) : (l.find((c) => customBase(c) === chart) || null); };
+  // 自由選択は、ローカルサーバーで開いているとき（作図の有無にかかわらず）か、作図済み・公開済みの図があるときに選べる
+  const regions2Avail = () => [...regionsAvail(), ...(S.local || customList().length ? ["custom"] : [])];
+  const charts2Avail = (region) => (region === "custom" ? (customList().length ? customList().map(customBase) : ["last"]) : chartsAvail(region));
+  const customText = (c) => `${c.label}（${c.model} ${c.initText} ＋${c.ft}h）`;
+  const regionLabel2 = (r) => (r === "custom" ? (S.local ? "自由選択（断面図・エマグラム）" : "保存された断面図・エマグラム（公開分）") : (S.manifest.regions[r] || r));
+  const chartLabel2 = (region, chart) => {
+    if (region === "custom") { const c = customFind(chart); return c ? customText(c) : "自由選択（まだ作図していません）"; }
+    return S.manifest.charts[chart] || chart;
+  };
+  const firstChart2 = (region, charts) => charts[0];
+  function defaultFig() {      // 自由選択（または公開された図）があればそれ、無ければ左と別の地域の先頭の図
+    const regs = regionsAvail();
+    S.region2 = regions2Avail().includes("custom") ? "custom" : (regs.find((r) => r !== S.region) || S.region);
+    S.chart2 = firstChart2(S.region2, charts2Avail(S.region2));
+  }
+  function validFig() {
+    if (!regions2Avail().includes(S.region2)) { defaultFig(); return; }
+    if (S.region2 === "custom" && S.chart2 === "last" && customList().length) S.chart2 = customBase(customList()[0]);   // 「最新」は先頭の画像に置き換える
+    const cs = charts2Avail(S.region2);
+    if (!cs.includes(S.chart2)) S.chart2 = firstChart2(S.region2, cs);
+  }
+
   // ---------- URLハッシュ（リロード・共有で状態を保つ）
   function saveHash() {
     history.replaceState(null, "", `#model=${S.model}&init=${S.init}&region=${S.region}&chart=${S.chart}&ft=${S.ft}` +
-      (S.cmp ? `&cmp=1&model2=${S.model2}` : ""));
+      (S.cmp ? `&cmp=1&model2=${S.model2}` : "") + (S.fig ? `&fig=1&region2=${S.region2}&chart2=${S.chart2}` : ""));
   }
   function loadHash() {
     return Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
@@ -124,11 +164,14 @@
     }
     $("updated").textContent = "更新 " + updatedUtc(m.updated);
 
+    S.local = await loadCustom();                     // ローカルサーバーなら自由選択の一覧が返る（公開サイトでは公開された図の一覧を読む）
     const h = loadHash();
     const models = modelKeys();
     S.model = models.includes(h.model) ? h.model : models[0];
     S.init = inits().some((i) => i.init === h.init) ? h.init : inits()[0].init;
     S.cmp = h.cmp === "1" && models.length > 1;
+    S.fig = h.fig === "1" && !S.cmp;
+    S.region2 = h.region2 || null; S.chart2 = h.chart2 || null;
     S.model2 = models.includes(h.model2) && h.model2 !== S.model ? h.model2 : (models.find((k) => k !== S.model) || null);
     const regs = regionsAvail();
     S.region = regs.includes(h.region) ? h.region : regs[0];
@@ -176,15 +219,31 @@
   // 比較モードの表示・非表示（2つ目のモデル欄、右の画像、幅）
   function applyCmpUi() {
     const multi = modelKeys().length > 1;
+    const dual = S.cmp || S.fig;                 // 左右に2枚並べる状態（2モデル比較 または 別の図を並べる）
     $("cmpChk").disabled = !multi;
     $("cmpChk").checked = S.cmp;
+    $("figChk").checked = S.fig;
     $("cmpBox").hidden = !S.cmp;
-    $("view2").hidden = !S.cmp;
-    $("cap1").hidden = !S.cmp;
-    document.body.classList.toggle("cmp", S.cmp);
+    $("figBox").hidden = !S.fig;
+    $("view2").hidden = !dual;
+    $("cap1").hidden = !dual;
+    document.body.classList.toggle("cmp", dual);
     $("modelLabel").textContent = S.cmp ? "左のモデル" : "モデル";
     if (S.cmp && S.model2) { $("model2Sel").value = S.model2; $("modelSel").value = S.model; }
+    if (S.fig) buildFigSelects();
   }
+
+  // 右の図（地域・図）の選択欄
+  function buildFigSelects() {
+    validFig();
+    const rs = $("region2Sel"), cs = $("chart2Sel");
+    rs.innerHTML = ""; cs.innerHTML = "";
+    for (const r of regions2Avail()) rs.add(new Option(regionLabel2(r), r));
+    for (const c of charts2Avail(S.region2)) cs.add(new Option(chartLabel2(S.region2, c), c));
+    rs.value = S.region2; cs.value = S.chart2;
+  }
+  $("region2Sel").onchange = (e) => { S.region2 = e.target.value; S.chart2 = firstChart2(S.region2, charts2Avail(S.region2)); buildFigSelects(); update(); };
+  $("chart2Sel").onchange = (e) => { S.chart2 = e.target.value; update(); };
 
   // 出典・ライセンス・免責・改変の表示（配信元の利用条件に基づく。文言は manifest.json から読む）
   const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -255,18 +314,20 @@
     if (!regs.includes(S.region)) S.region = regs[0];
     const charts = chartsAvail(S.region);
     if (!charts.includes(S.chart)) S.chart = charts[0];
+    if (S.fig) validFig();
     const f = fts();
     if (f.length && !f.includes(S.ft)) S.ft = f.reduce((a, b) => (Math.abs(b - S.ft) < Math.abs(a - S.ft) ? b : a));
   }
 
   // ---------- 表示更新
   // 1つの画像枠（n=1:左 / n=2:右）を、model の図で更新する。解決できなければ「画像なし」。戻り値は解決結果。
-  function renderView(n, model) {
+  function renderView(n, model, region, chart) {
     const img = $(n === 1 ? "chartImg" : "chartImg2");
     const nodata = $(n === 1 ? "noData" : "noData2");
-    const r = resolve(model, S.region, S.chart, S.ft);
+    img.onerror = null;                           // 自由選択の画像用に付けた処理を残さない
+    const r = resolve(model, region, chart, S.ft);
     if (!r) {
-      const any = modelInits(model).some((i) => listAt(model, i.init, S.region, S.chart).length);
+      const any = modelInits(model).some((i) => listAt(model, i.init, region, chart).length);
       nodata.textContent = any ? "この予報時刻の画像なし（初期値が違うため時刻が合いません。→キーなどで時刻を進めてください）"
                                : "このモデルには、この図・範囲の画像がありません";
       nodata.hidden = false;
@@ -274,8 +335,36 @@
       return null;
     }
     nodata.hidden = true;
-    img.src = imgUrl(model, r.init, S.region, S.chart, r.ft);
+    img.src = imgUrl(model, r.init, region, chart, r.ft);
     return r;
+  }
+
+  // 別の図を並べる: 右の枠。自由選択の図なら、保存された画像をそのまま出す（予報時間とは連動しない）
+  function renderFig() {
+    if (S.region2 !== "custom") return renderView(2, S.model, S.region2, S.chart2);
+    const c = customFind(S.chart2), img = $("chartImg2"), nodata = $("noData2");
+    if (!c) {
+      nodata.innerHTML = "まだ自由選択（断面図・エマグラム）で作図していません。<a href=\"custom.html\">自由選択のページ</a>で作図すると、ここに並べて表示できます。";
+      nodata.hidden = false; img.removeAttribute("src"); return null;
+    }
+    nodata.hidden = true;
+    img.onerror = () => { nodata.textContent = "自由選択の画像が見つかりません（ディスクの整理で削除された可能性があります。もう一度作図してください）"; nodata.hidden = false; };
+    img.src = c.url;
+    return { custom: c };
+  }
+
+  // 別の図を並べるときの見出し（図の名前・モデル・初期値・予報時間）
+  function capFig(model, region, chart, r) {
+    const head = `<b>${esc(chartLabel2(region, chart))}</b> ｜ ${esc(labelOf(model))} ｜ `;
+    if (!r) return head + "画像なし";
+    const note = r.init !== S.init ? "（別の初期値・予報時刻を合わせて表示）" : (r.exact ? "" : `（FT${r.ft}h＝直前の予報時間）`);
+    return head + `${isAnal(model) ? "解析 開始" : "初期値"} ${fmt(parseInit(r.init), 0, "UTC")} ＋${r.ft}h${note}`;
+  }
+  function capCustom() {
+    const c = customFind(S.chart2);
+    const name = S.local ? "自由選択（断面図・エマグラム）" : "保存された断面図・エマグラム";   // 公開サイトでは新しく作れないので「自由選択」とは出さない
+    return c ? `<b>${name}</b> ｜ ${esc(c.label)} ｜ ${esc(c.model)} 初期値 ${esc(c.initText)} ＋${c.ft}h（作図済みの画像。予報時間とは連動しません）`
+             : "<b>自由選択（断面図・エマグラム）</b> ｜ 未作図";
   }
 
   // 比較モードの見出し: モデル名・初期値・予報時間（初期値が違う/刻みが合わない場合は分かるように）
@@ -293,8 +382,8 @@
     if (!f.includes(S.ft)) S.ft = f[0] ?? 0;
     slider.value = Math.max(f.indexOf(S.ft), 0);
 
-    const r1 = renderView(1, S.model);
-    const r2 = S.cmp && S.model2 ? renderView(2, S.model2) : null;
+    const r1 = renderView(1, S.model, S.region, S.chart);
+    const r2 = S.cmp && S.model2 ? renderView(2, S.model2, S.region, S.chart) : (S.fig ? renderFig() : null);
 
     // 保存リンク（左・右）
     if (r1) {
@@ -311,6 +400,16 @@
       }
     }
 
+    if (S.fig) {
+      $("cap1").innerHTML = capFig(S.model, S.region, S.chart, r1);
+      $("cap2Text").innerHTML = S.region2 === "custom" ? capCustom() : capFig(S.model, S.region2, S.chart2, r2);
+      if (r2 && r2.custom) { $("dl2").href = r2.custom.url; $("dl2").download = r2.custom.url.split("/").pop(); }
+      else if (r2) {
+        $("dl2").href = imgUrl(S.model, r2.init, S.region2, S.chart2, r2.ft);
+        $("dl2").download = `${S.model}_${r2.init}_${S.region2}_${S.chart2}_FT${r2.ft}.png`;
+      }
+    }
+
     const d = parseInit(S.init);
     $("timeInfo").innerHTML = S.cmp
       ? `予報有効時刻 <b>${fmt(d, S.ft, "UTC")}</b> ／ 左のモデルの初期値 ${fmt(d, 0, "UTC")} ＋${S.ft}h`
@@ -319,6 +418,7 @@
         : `初期値 ${fmt(d, 0, "UTC")} ／ <b>FT=${S.ft}h</b> ／ 予報時刻 <b>${fmt(d, S.ft, "UTC")}</b>`;
     applySize();                                  // timeInfo の行数で画像の開始位置が変わるため、収まる高さを再計算
 
+    if (S.fig) $("timeInfo").innerHTML += " ／ 右の図も同じ予報時間（自由選択の画像は固定）";
     buildThumbs();
     preload();
     saveHash();
@@ -391,8 +491,17 @@
   // 2モデル比較の切り替え
   function setCmp(on) {
     S.cmp = on && modelKeys().length > 1;
+    if (S.cmp) S.fig = false;                     // 別の図を並べるとは同時に使えない
     if (S.cmp && (!S.model2 || S.model2 === S.model)) S.model2 = modelKeys().find((k) => k !== S.model);
     applyCmpUi(); keepValid(); buildRegionBtns(); buildTabs(); update(); buildCredit();
+  }
+
+  // 別の図を並べる（2モデル比較とは同時に使えない）
+  function setFig(on) {
+    S.fig = on;
+    if (on) { S.cmp = false; if (!S.region2) defaultFig(); }
+    applyCmpUi(); keepValid(); buildRegionBtns(); buildTabs(); update(); buildCredit();
+    if (on) refreshCustom(false);                  // 自由選択の一覧（サーバー）を読み直す
   }
 
   // 左右の入れ替え。予報有効時刻を保つため、右の解決結果（初期値・FT）を新しい左の基準にする
@@ -432,6 +541,7 @@
 
   $("speedSel").onchange = () => { if (S.timer) { play(); play(); } };
   $("cmpChk").onchange = (e) => setCmp(e.target.checked);
+  $("figChk").onchange = (e) => setFig(e.target.checked);
   $("btnSwap").onclick = swapModels;
 
   window.addEventListener("keydown", (e) => {
@@ -446,6 +556,7 @@
     else if (e.key === "Home") setIndex(0);
     else if (e.key === "End") setIndex(fts().length - 1);
     else if (e.key === "c" || e.key === "C") setCmp(!S.cmp);
+    else if (e.key === "f" || e.key === "F") setFig(!S.fig);
     else return;
     e.preventDefault();
   });
@@ -609,6 +720,18 @@
     } catch (e) { $("pastMsg").textContent = "開始できません"; $("pastGo").disabled = false; return; }
     pollUpdate();
   };
+
+  // 別のタブ・別のブラウザで作図した結果も、サーバーの一覧から読み直して反映する。
+  // newest=true: 新しい画像が増えていたら、右の図をその最新に切り替える（タブに戻っただけのときは今の選択を保つ）
+  async function refreshCustom(newest) {
+    const before = customCache[0] && customBase(customCache[0]);
+    await loadCustom();
+    if (!S.fig) return;
+    const after = customCache[0] && customBase(customCache[0]);
+    if (newest && S.region2 === "custom" && after && after !== before) S.chart2 = "last";
+    buildFigSelects(); update();
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.fig) refreshCustom(true); });
 
   // 自動同期（launchd）で manifest が更新されていたら、画面を開き直したとき・タブに戻ったときに取り込む
   document.addEventListener("visibilitychange", async () => {

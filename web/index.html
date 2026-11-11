@@ -20,6 +20,14 @@
     <label>右のモデル <select id="model2Sel"></select></label>
     <button id="btnSwap" title="左右のモデルを入れ替える（予報有効時刻は保つ）">⇄ 入替</button>
   </span>
+  <!-- 別の図を並べる: 同じモデル・初期値・予報時間で、右に別の地域の図や、自由選択の断面図・エマグラムを出す。2モデル比較とは同時に使えない -->
+  <label class="cmpToggle" title="平面図と断面図・エマグラムなど、別の図を左右に並べて表示します（同じモデル・初期値・予報時間。2モデル比較とは同時に使えません）">
+    <input type="checkbox" id="figChk"> 別の図を並べる
+  </label>
+  <span id="figBox" hidden>
+    <label>右の図 <select id="region2Sel" title="右に出す図の地域"></select></label>
+    <select id="chart2Sel" title="右に出す図"></select>
+  </span>
   <label><span id="initLabel">初期値</span>
     <select id="initSel"></select>
   </label>

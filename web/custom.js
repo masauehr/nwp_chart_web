@@ -165,8 +165,11 @@
   const histText = (c) => `${c.label}（${c.model} ${c.initText} ＋${c.ft}h）` + (c.published ? "【公開中】" : "");
   // 結果の画像を出す。ローカルでは「公開サイトに載せる／外す」も出す
   function showResult(c) {
+    const base = c.url.split("/").pop();
+    const link = `./#${c.mk ? `model=${c.mk}&init=${c.ik}&` : ""}${c.mk ? `ft=${c.ft}&` : ""}fig=1&region2=custom&chart2=${encodeURIComponent(base)}`;
     $("result").innerHTML = (LOCAL
-      ? `<p id="pubRow"><button id="btnPub">${c.published ? "公開から外す" : "公開サイトに載せる"}</button> ` +
+      ? `<p><a href="${link}" target="_blank" rel="noopener">通常版の左の図と並べて見る（通常版を開く）</a>` +
+        `<span class="note">　通常版の「別の図を並べる」で、右の図を選び直せます</span></p><p id="pubRow"><button id="btnPub">${c.published ? "公開から外す" : "公開サイトに載せる"}</button> ` +
         `<span class="note" id="pubMsg">${c.published ? "公開中です（公開サイトの「保存された断面図・エマグラム」で、誰でも見られます）"
           : "公開サイトに載せると、誰でも見られます（直近10件まで。古いものから外れます）"}</span></p>` : "") +
       `<img alt="${histText(c)}" src="${c.url}">`;
