@@ -244,6 +244,7 @@ GitHub Actions の取得時刻（cron）を推測でなく実測で決めるた�
 | 2026-11-10 | **GSM（ローカル）**に 100hPa ジェット（tenkizu の `GSM_100hPa.py` と同じ表示）・jet200・t300 を追加。画面の「過去分取得」から**過去の初期値を手動で取得・一覧・削除**（手動分は自動削除の対象外）。API の状態キャッシュ（`/api/status` が10分キャッシュされていた）を修正 |
 | 2026-11-10 | **JRA-55 再解析を追加**（ローカル専用・アジア/日本域のみ・認証不要）。RISH の月ファイルから必要な時刻・気圧面だけ範囲読み込みし、開始時刻から N 日分を1つの系列として取得。スライダー・再生で時間の推移を見られる |
 | 2026-11-10 | **容量の方針を記録**（Pages 1GB はサイト＝リポジトリ単位・現状約0.88GBで様子見。WebP は実測で効果小のため見送り） |
+| 2026-11-11 | ディスク使用量チェックの launchd（`com.masahiro.nwp_chart_web_disk`・6時間おき）を登録 |
 | 2026-11-11 | **任意の断面図・エマグラム（自由選択）を追加**（ローカル。地図クリックで指定・13層・断面の表示要素（湿り・上昇流・温位・相当温位・風矢羽の背景）を選べる・最近の作図10件・ディスク使用量の制限と通知）。作った図を**公開サイトに直近10件まで載せられる**（公開版は閲覧専用）。tenkizu_web から移植 |
 | 2026-11-11 | 各モデルの自動取得の初期値（ECMWF は 00/12/18Z、GFS・AIFS は 00/12Z）と、揃う時刻・公開までの目安の表を、README・マニュアル・画面（通常版フッター・画用紙版の使い方）に追加 |
 
@@ -298,7 +299,7 @@ tenkizu_web（天気図・断面図・エマグラムのビューア）で作っ
 
 - 取得の直前と作図後に自動で整理する。自由選択のページ下部に使用量が出る。通知は macOS の通知センター（同じ内容は24時間に1回）。
 - 上限は `disk_limits.json`（任意）で変える。例: `{"grib_gb": 5, "free_warn_gb": 30}`。確認は `python disk_guard.py`。
-- 定期チェックと通知は launchd `launchd/com.masahiro.nwp_chart_web_disk.plist`（6時間おき。**未登録**。登録すると上限超過・空き不足を通知する）。登録しなくても、取得の直前と作図後の整理は動く。登録: `cp launchd/com.masahiro.nwp_chart_web_disk.plist ~/Library/LaunchAgents/ && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.masahiro.nwp_chart_web_disk.plist`。
+- 定期チェックと通知は launchd `com.masahiro.nwp_chart_web_disk`（**6時間おき・2026-11-11 登録済み**。上限超過・空き不足を通知する。ログ `logs/disk_guard.log`）。登録していない環境でも、取得の直前と作図後の整理は動く。登録: `cp launchd/com.masahiro.nwp_chart_web_disk.plist ~/Library/LaunchAgents/ && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.masahiro.nwp_chart_web_disk.plist`。止める: `launchctl bootout gui/$(id -u)/com.masahiro.nwp_chart_web_disk`。
 
 ### 追加・変更したファイル
 - 新規: `xsection.py`（断面）・`emagram.py`（エマグラム）・`custom.py`（自由選択）・`disk_guard.py`・`make_coast.py`（地図用の海岸線 `web/coast.json`）・`web/custom.html`・`web/custom.js`・launchd 雛形・テスト。

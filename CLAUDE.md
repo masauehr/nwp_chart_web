@@ -19,7 +19,7 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - 取得は `nwp_data.CUSTOM_PLEVELS`（13層）を `data/custom/` へ。**自動更新（`PLEVELS` の7層）の取得量・保存先は変えない**。対象モデルは ECMWF・GFS・AIFS・GSM（再解析 JRA-55 は不可）。地点・断面は `nwp_data.CROP`（東経50〜185度・北緯−15〜82度）の中だけ。
 - 「最近の作図」は `output/custom/` の画像と同名の `.json`（条件）から `/api/custom/list` が作る（ブラウザの localStorage に履歴を持たせない）。画像を消す処理は `.json` も一緒に消すこと。
 - 公開掲載は `publish.py --custom`（gh-pages の `output/custom/` の `list.json` と画像だけを書き換える。最大10件）。**画面で2回押して確定した画像だけ**公開する（自動では載せない）。`sync_web`・`sync_model` が `output/custom/` に触れないこと。公開版は閲覧専用（Pages は静的で、新しい断面は作れない）。
-- 自由選択の GRIB2（`data/custom/`）と画像（`output/custom/`）は `disk_guard.py` が上限を超えた分を古い順に削除する。GSM・作図済み画像は警告のみ。
+- 自由選択の GRIB2（`data/custom/`）と画像（`output/custom/`）は `disk_guard.py` が上限を超えた分を古い順に削除する。GSM・作図済み画像は警告のみ。launchd `com.masahiro.nwp_chart_web_disk`（6時間おき・2026-11-11 登録済み・ログ `logs/disk_guard.log`）が定期的に実行して通知する。
 
 ## GSM（ローカル専用モデル）
 - **GSM の画像・データは公開しない**。`nwp_data.MODELS["gsm"]` の `local_only` が基準。`publish.py`（`--model gsm` も `--pull` も拒否）、公開用manifest（`write_manifest(public_only=True)`）、`build_site.py`、CIの対象一覧で除外している。**これらを外さない**。新しいローカル専用モデルを足すなら `local_only` を付ける。
