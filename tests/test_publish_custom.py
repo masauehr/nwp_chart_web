@@ -49,13 +49,14 @@ def test_publish_adds_to_front_and_copies_image(env):
     assert items[0]["url"] == f"output/custom/{b}" and items[0]["mk"] == "gfs" and items[0]["ft"] == 2
 
 
-def test_publish_keeps_only_newest_10_and_removes_dropped_images(env):
+def test_publish_keeps_only_newest_max_and_removes_dropped_images(env):
     src, wt = env
-    names = [make(src, i, 1000 - i) for i in range(12)]
-    for n in names:                                                       # 12回載せる → 古い2件は公開側から消える
+    n_max = publish.CUSTOM_MAX
+    names = [make(src, i, 2000 - i) for i in range(n_max + 2)]
+    for n in names:                                                       # 上限+2回載せる → 古い2件は公開側から消える
         publish.sync_custom(wt, [n], [])
     got = publish.sync_custom(wt, [], [])
-    assert len(got) == 10 and got[0] == names[11] and names[0] not in got and names[1] not in got
+    assert n_max == 20 and len(got) == n_max and got[0] == names[-1] and names[0] not in got and names[1] not in got
     pngs = sorted(p.name for p in (wt / "output" / "custom").glob("*.png"))
     assert pngs == sorted(got)                                            # 一覧と公開側の画像ファイルが一致
 
@@ -112,3 +113,13 @@ def test_cli_validates_image_names(monkeypatch):
         publish.parse_args()
     monkeypatch.setattr(sys, "argv", ["publish.py", "--custom", "emagram_gfs_2026111018_000_0123456789ab.png"])
     assert publish.parse_args().custom == ["emagram_gfs_2026111018_000_0123456789ab.png"]
+
+
+def test_model_publish_does_not_overwrite_web_files():
+    """モデルの公開（--model）は画面ファイルを上書きしない。画面だけの公開（--web-only）と、公開ブランチが無いとき（初回）だけ反映する。
+    古いジョブが画面の更新後に終わって、古い画面で上書きした不具合（2026-11-12）の再発防止。"""
+    from types import SimpleNamespace as NS
+    assert publish.should_sync_web(NS(web_only=True, model=None), tip="abc")
+    assert publish.should_sync_web(NS(web_only=False, model=None), tip="abc")           # 画面だけ（モデル指定なし）
+    assert not publish.should_sync_web(NS(web_only=False, model="gfs"), tip="abc")      # モデルの公開は画面に触れない
+    assert publish.should_sync_web(NS(web_only=False, model="gfs"), tip=None)           # 公開ブランチがまだ無い（初回）

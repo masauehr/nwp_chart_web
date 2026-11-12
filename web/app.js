@@ -98,9 +98,9 @@
   }
   const fts = () => [...new Set(shownModels().flatMap(modelFts))].sort((a, b) => a - b);
 
-  // ---------- 別の図を並べる: 右に、同じモデル・初期値・予報時間の別の地域の図、またはローカルの自由選択で作った図（直近10件）を出す。
+  // ---------- 別の図を並べる: 右に、同じモデル・初期値・予報時間の別の地域の図、またはローカルの自由選択で作った図（直近10件。公開サイトは公開分の20件まで）を出す。
   // 自由選択の一覧は、サーバー（/api/custom/list）が output/custom/ の画像ファイルから作る（ブラウザの保存には頼らない）。
-  // 公開サイトでは、作者が公開した直近10件の一覧（output/custom/list.json）を読む（閲覧のみ）
+  // 公開サイトでは、作者が公開した直近20件の一覧（output/custom/list.json）を読む（閲覧のみ）
   let customCache = [];
   const customList = () => customCache;
   async function loadCustom() {                        // ローカルサーバーから取得できたか（＝ローカルか）を返す

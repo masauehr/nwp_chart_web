@@ -55,7 +55,7 @@ def parse_args():
     p.add_argument("--keep", type=int, default=None, help="公開する初期値の数（モデルごと。既定: nwp_data.MODELS の publish_keep）")
     p.add_argument("--remote", default="origin", help="公開先のリモート名（既定: origin）")
     p.add_argument("--branch", default="gh-pages", help="公開ブランチ（既定: gh-pages）")
-    p.add_argument("--custom", nargs="+", metavar="画像名", help="自由選択で作った画像（output/custom/ の PNG）を公開サイトに載せる（直近10件まで）")
+    p.add_argument("--custom", nargs="+", metavar="画像名", help="自由選択で作った画像（output/custom/ の PNG）を公開サイトに載せる（直近20件まで）")
     p.add_argument("--custom-remove", nargs="+", metavar="画像名", help="公開サイトに載せた自由選択の画像を外す")
     p.add_argument("--dry-run", action="store_true", help="pushせず、変更の有無だけ表示")
     if any(a in sys.argv[1:] for a in ("?", "-?", "--?")):
@@ -163,11 +163,11 @@ def sync_model(wt: Path, model: str, keep: int):
     return inits
 
 
-CUSTOM_MAX = 10   # 公開サイトに載せる自由選択の画像の最大件数
+CUSTOM_MAX = 20   # 公開サイトに載せる自由選択の画像の最大件数（nwp_xsection_api の ghpub.MAX_ITEMS と同じにする）
 
 
 def sync_custom(wt: Path, add, remove):
-    """自由選択の画像を公開側の output/custom/ へ載せる・外す。list.json（新しい順・最大10件）を作り直す。
+    """自由選択の画像を公開側の output/custom/ へ載せる・外す。list.json（新しい順・最大20件）を作り直す。
     他のフォルダ（モデルの画像・画面ファイル）には触れない。公開した画像の名前の一覧を返す。"""
     import json
     sys.path.insert(0, str(ROOT))
@@ -228,6 +228,16 @@ def regenerate_manifest(wt: Path):
             pass
 
 
+def should_sync_web(a, tip):
+    """画面ファイル（web/）を公開ブランチへ反映するか。
+
+    画面の反映は deploy-web（--web-only）の仕事。モデルの公開（--model）は、ジョブを起動した時点の web/ を持っているため、
+    画面を直して push した直後に、すでに走っていた古いジョブが終わると、古い画面で公開側を上書きしてしまう
+    （2026-11-12 に発生: 画面の修正が公開サイトに反映されなかった）。だから、モデルの公開では画面に触れない。
+    ただし、公開ブランチがまだ無いとき（初回）は、画面も一緒に反映する。"""
+    return bool(a.web_only or not a.model or tip is None)
+
+
 def publish(a):
     custom_mode = bool(a.custom or a.custom_remove)   # 自由選択の画像だけを反映する（画面ファイルやモデルの画像には触れない）
     published = []
@@ -240,12 +250,13 @@ def publish(a):
                 published = sync_custom(wt, a.custom or [], a.custom_remove or [])
                 note = f"自由選択の断面図・エマグラム（公開 {len(published)} 件）"
             else:
-                sync_web(wt)
+                if should_sync_web(a, tip):
+                    sync_web(wt)
                 note = "画面ファイルのみ"
             if a.model and not a.web_only and not custom_mode:
                 inits = sync_model(wt, a.model, a.keep)
                 regenerate_manifest(wt)
-                note = f"{a.model} {', '.join(inits)} と画面ファイル"
+                note = f"{a.model} {', '.join(inits)}" + (" と画面ファイル" if tip is None else "")
             git("add", "-A", cwd=wt)
             if tip is not None and git("diff", "--cached", "--quiet", cwd=wt, check=False).returncode == 0:
                 print("公開ブランチに変更はありません（何も反映しません）")

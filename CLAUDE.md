@@ -19,8 +19,8 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - `custom.py`（検証・作図・一覧）・`xsection.py`・`emagram.py`・`disk_guard.py`・`web/custom.html`/`custom.js`。**tenkizu_web とは共通部品化しない**（コピーして調整。両方を直すときは別々に直す）。API: `/api/custom`・`/api/custom/list`・`/api/custom/publish`・`/api/disk`（`_local_only`・POST は同一Origin。外さない）。
 - 取得は `nwp_data.CUSTOM_PLEVELS`（13層）を `data/custom/` へ。**自動更新（`PLEVELS` の7層）の取得量・保存先は変えない**。対象モデルは ECMWF・GFS・AIFS・GSM（再解析 JRA-55 は不可）。地点・断面は `nwp_data.CROP`（東経50〜185度・北緯−15〜82度）の中だけ。
 - 「最近の作図」は `output/custom/` の画像と同名の `.json`（条件）から `/api/custom/list` が作る（ブラウザの localStorage に履歴を持たせない）。画像を消す処理は `.json` も一緒に消すこと。
-- 公開掲載は `publish.py --custom`（gh-pages の `output/custom/` の `list.json` と画像だけを書き換える。最大10件）。**画面で2回押して確定した画像だけ**公開する（自動では載せない）。公開した名前は手元の `output/custom/published.json` に記録する。`sync_web`・`sync_model` が `output/custom/` に触れないこと。公開版は閲覧専用（Pages は静的で、新しい断面は作れない）。
-- 通常版の「別の図を並べる」（`web/app.js`。右に別の地域の図／自由選択の直近10件。公開サイトは `output/custom/list.json` の公開分）。2モデル比較とは同時に使えない。tenkizu_web とは別々にコピーしてあるので、直すときは両方を見る。
+- 公開掲載は `publish.py --custom`（gh-pages の `output/custom/` の `list.json` と画像だけを書き換える。最大20件）。**画面で2回押して確定した画像だけ**公開する（自動では載せない）。公開した名前は手元の `output/custom/published.json` に記録する。`sync_web`・`sync_model` が `output/custom/` に触れないこと。公開版は閲覧専用（Pages は静的で、新しい断面は作れない）。
+- 通常版の「別の図を並べる」（`web/app.js`。右に別の地域の図／断面図・エマグラムの図（ローカルは直近10件・公開サイトは公開分の20件まで）。公開サイトは `output/custom/list.json` の公開分）。2モデル比較とは同時に使えない。tenkizu_web とは別々にコピーしてあるので、直すときは両方を見る。
 - 自由選択の GRIB2（`data/custom/`）と画像（`output/custom/`）は `disk_guard.py` が上限を超えた分を古い順に削除する。GSM・作図済み画像は警告のみ。launchd `com.masahiro.nwp_chart_web_disk`（6時間おき・2026-11-11 登録済み・ログ `logs/disk_guard.log`）が定期的に実行して通知する。
 
 ## 公開サイトからの断面図（Render の API・2026-11-12 有効化。API 側は別リポジトリ nwp_xsection_api）
@@ -65,6 +65,8 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - gh-pages を直接編集しない（`publish.py` 経由）。ローカル検証は空の bare リポジトリを `--remote` に指定。
 
 ## 落とし穴
+- **モデルの公開（`publish.py --model`）は画面ファイル（web/）を上書きしない**（`should_sync_web`。画面の反映は deploy-web だけ。公開ブランチが無い初回だけ例外）。起動時の古い `web/` を持つジョブが、画面を直して push した後に終わって古い画面で上書きし、修正が公開サイトに出なかった（2026-11-12）。画面を直して push したら、公開サイト（gh-pages）の該当ファイルが新しいか確認する。
+- 公開サイトの**公開の上限は20件**（`publish.py` の `CUSTOM_MAX` と nwp_xsection_api の `ghpub.MAX_ITEMS` を同じにする。片方が小さいと、もう一方が公開した分を切り詰める）。
 - **公開サイトの容量（Pages 1GB・サイト＝リポジトリ単位）は約0.88GBでほぼ上限**。図種・地域・公開個数を増やす前に見積もる（`gh api repos/masauehr/nwp_chart_web --jq .size`）。方針と選択肢は PUBLISH.md の「容量の制約と対応方針」。WebPは効果が小さく見送り。
 - 取得は **索引(.index/.idx)のバイト範囲だけ**。全体（ECMWF約100MB・GFS約540MB/ステップ）を取らない。
 - 最新の初期値は「FT72hまで揃っているもの」だけ採る（公開途中を避ける）。ECMWF 06/18UTC は90hまで。

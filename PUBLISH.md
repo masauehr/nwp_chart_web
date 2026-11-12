@@ -103,12 +103,12 @@ AIFS（ECMWF の AI 予報モデル）は IFS と同じ CC BY 4.0 + ECMWF Terms 
 未確認: GFS専用ページ（EMC）の記述、ECMWFの具体的な頻度制限、ECMWF技術文書。ECMWFは「Service Charges / Service Agreement」の対象になりうるとの記載があるため、大規模な利用になる場合は再確認する。
 
 ## 自由選択の図を公開サイトに載せる（任意・2026-11-11〜）
-ローカルで作った断面図・エマグラムを、直近10件まで公開サイトに載せられる（自由選択のページの「公開サイトに載せる」。2回押して確定）。公開版では通常版の上部に「保存された断面図・エマグラム」が出て、閲覧専用で見られる。
+ローカルで作った断面図・エマグラムを、直近20件まで公開サイトに載せられる（自由選択のページの「公開サイトに載せる」。2回押して確定）。公開版では通常版の上部に「保存された断面図・エマグラム」が出て、閲覧専用で見られる。
 ```bash
 python publish.py --custom <画像名.png ...> [--dry-run]   # 載せる（output/custom/ の画像。条件ファイル .json が要る）
 python publish.py --custom-remove <画像名.png ...>         # 外す
 ```
-- 反映先は gh-pages の `output/custom/`（`list.json` と画像）だけ。モデルの画像・画面ファイル・`manifest.json` には触れない（CI の `update-model`・`deploy-web` とも干渉しない）。`list.json` は新しい順・最大10件。
+- 反映先は gh-pages の `output/custom/`（`list.json` と画像）だけ。モデルの画像・画面ファイル・`manifest.json` には触れない（CI の `update-model`・`deploy-web` とも干渉しない）。`list.json` は新しい順・最大20件。
 - 1件は約100〜150KB なので、公開サイトの容量（約0.89GB・1GB の目安）への影響は小さい。**図種・地域・公開個数を増やす前に、容量の節を確認する**。
 - 公開した名前は手元の `output/custom/published.json` に記録される（自由選択のページの【公開中】の表示に使う）。
 

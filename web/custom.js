@@ -181,7 +181,7 @@
       ? `<p><a href="${link}" target="_blank" rel="noopener">通常版の左の図と並べて見る（通常版を開く）</a>` +
         `<span class="note">　通常版の「別の図を並べる」で、右の図を選び直せます</span></p><p id="pubRow"><button id="btnPub">${c.published ? "公開から外す" : "公開サイトに載せる"}</button> ` +
         `<span class="note" id="pubMsg">${c.published ? "公開中です（公開サイトのこのページの一覧と、通常版の「別の図を並べる」で、誰でも見られます）"
-          : "公開サイトに載せると、誰でも見られます（直近10件まで。古いものから外れます）"}</span></p>` : "") +
+          : "公開サイトに載せると、誰でも見られます（直近20件まで。古いものから外れます）"}</span></p>` : "") +
       `<img alt="${histText(c)}" src="${c.url}">`;
     if (LOCAL) wirePub(c);
   }
@@ -333,7 +333,7 @@
     $("result").innerHTML =
       `<p id="pubRow"><button id="btnPub">${published ? "公開から外す" : "公開サイトに載せる"}</button> ` +
       `<span class="note" id="pubMsg">${published ? "公開中です（誰でも見られます）。外すには合言葉が要ります。"
-        : "公開サイトに載せると誰でも見られます（直近10件まで）。合言葉が要ります。作図結果は、しばらくすると API 側から消えます。"}</span></p>` +
+        : "公開サイトに載せると誰でも見られます（直近20件まで）。合言葉が要ります。作図結果は、しばらくすると API 側から消えます。"}</span></p>` +
       `<img alt="${esc(c.label)}" src="${esc(src)}">` +
       (c.legal ? `<p class="note">${esc(c.legal)}</p>` : "");
     wireRemotePub(name, published);
@@ -358,7 +358,7 @@
         if (!r.ok) return undo(j.error || `反映できません（HTTP ${r.status}）`);
         setKey(key);                                                           // 合っていた合言葉は、この端末に覚えておく
         b.hidden = true;
-        msg.textContent = (published ? "公開から外しました" : "公開しました") + "。公開サイトへの反映に1〜2分かかります（下の一覧は、そのあと再読み込みすると変わります）。";
+        msg.textContent = (published ? "公開から外しました" : "公開しました") + "。公開サイトへの反映に1〜2分かかります（上の一覧は、そのあと再読み込みすると変わります）。";
       } catch (e) { undo("反映できません（しばらくしてからもう一度試してください）"); }
     };
   }
