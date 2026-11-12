@@ -23,6 +23,11 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - 通常版の「別の図を並べる」（`web/app.js`。右に別の地域の図／自由選択の直近10件。公開サイトは `output/custom/list.json` の公開分）。2モデル比較とは同時に使えない。tenkizu_web とは別々にコピーしてあるので、直すときは両方を見る。
 - 自由選択の GRIB2（`data/custom/`）と画像（`output/custom/`）は `disk_guard.py` が上限を超えた分を古い順に削除する。GSM・作図済み画像は警告のみ。launchd `com.masahiro.nwp_chart_web_disk`（6時間おき・2026-11-11 登録済み・ログ `logs/disk_guard.log`）が定期的に実行して通知する。
 
+## 公開サイトからの断面図（Render の API・2026-11-12。API 側は別リポジトリ nwp_xsection_api）
+- `web/config.js` の `window.NWP_XSECTION_API`（Render の URL）が**空なら従来どおり**（公開版は閲覧専用）。URL を入れて push すると `web/custom.js` が `REMOTE_MODE` になり、公開サイトで断面図を作れる（作図は認証なし・公開サイトへの掲載だけ合言葉）。API の応答形式（`/api/xsection`・`/api/job/<id>`・`/api/publish`）を変えたら nwp_xsection_api と一緒に直す。
+- ローカルサーバー（`LOCAL=true`）の挙動は変えない（`REMOTE_MODE` は `!LOCAL && REMOTE` のときだけ）。エマグラムは API の対象外。
+- API が gh-pages の `output/custom/`（画像と `list.json`）を Contents API で書く。`list.json` の形式は `publish.py --custom` と同じ（`by` は追加項目）。`sync_web` は `config.js` も反映する（公開に URL が載るが秘密ではない）。**API 側のデプロイが済むまで、`config.js` に URL を入れない**。
+
 ## GSM（ローカル専用モデル）
 - **GSM の画像・データは公開しない**。`nwp_data.MODELS["gsm"]` の `local_only` が基準。`publish.py`（`--model gsm` も `--pull` も拒否）、公開用manifest（`write_manifest(public_only=True)`）、`build_site.py`、CIの対象一覧で除外している。**これらを外さない**。新しいローカル専用モデルを足すなら `local_only` を付ける。
 - GSMはRISHからファイル全体を取得し、`data/gsm/` に**残す**（作図のたびには削除しない。3日超は自動取得の `--keep-days` が消す。取得済みの `gsm_chart_web/data/gsm` は `--data-dir` で再利用）。既定のFT間隔は3（日本域0.125°が3時間毎）。地域 `japan3`/`okinawa3` はGSM専用（`REGIONS` の `models`/`src`）。

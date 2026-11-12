@@ -150,9 +150,14 @@
   // （ブラウザの保存には頼らない。別のブラウザでも、サイトデータを消しても同じ）
   const MAX_HIST = 10;
   let LOCAL = true;                                    // ローカルサーバーか（公開サイトでは閲覧だけ）
+  // 公開サイトでも、Render の断面図API（nwp_xsection_api）が設定されていれば、断面図を作れる（config.js の NWP_XSECTION_API）。
+  // 作図は認証なし（回数制限あり）・公開サイトへの掲載だけ合言葉が要る。エマグラムは対象外。
+  const REMOTE = String(window.NWP_XSECTION_API || "").replace(/\/+$/, "");
+  let REMOTE_MODE = false;
   async function detectLocal() {
     try { const j = await (await fetch("api/custom/list", { cache: "no-store" })).json(); LOCAL = Array.isArray(j.items); } catch (e) { LOCAL = false; }
-    if (!LOCAL) {                                       // 公開サイト: 作者が公開した図を見るだけ（新しく作ることはできない）
+    if (!LOCAL && REMOTE) { REMOTE_MODE = true; setupRemote(); }
+    else if (!LOCAL) {                                  // 公開サイト: 作者が公開した図を見るだけ（新しく作ることはできない）
       $("form").hidden = true; $("disk").hidden = true;
       $("intro").textContent = "作者が公開した断面図・エマグラムです（公開サイトでは新しく作ることはできません）。下のボタンで選んでください。";
     }
@@ -165,6 +170,7 @@
   const histText = (c) => `${c.label}（${c.model} ${c.initText} ＋${c.ft}h）` + (c.published ? "【公開中】" : "");
   // 結果の画像を出す。ローカルでは「公開サイトに載せる／外す」も出す
   function showResult(c) {
+    if (REMOTE_MODE) return showRemoteResult(c, true);               // 一覧（公開サイトの list.json）の図はすべて公開済み
     const base = c.url.split("/").pop();
     const link = `./#${c.mk ? `model=${c.mk}&init=${c.ik}&` : ""}${c.mk ? `ft=${c.ft}&` : ""}fig=1&region2=custom&chart2=${encodeURIComponent(base)}`;
     $("result").innerHTML = (LOCAL
@@ -217,6 +223,7 @@
   detectLocal().then(renderHist);
 
   $("go").onclick = async () => {
+    if (REMOTE_MODE) return goRemote();
     const q = new URLSearchParams({ kind: kind(), model: $("model").value, init: $("init").value, ft: $("ft").value });
     for (const id of kind() === "xsection" ? ["lat1", "lon1", "lat2", "lon2"] : ["lat", "lon"]) q.set(id, $(id).value);
     if (kind() === "xsection") {                                       // 断面の表示要素（色塗り・等値線・風矢羽）
@@ -239,6 +246,96 @@
     $("go").disabled = false;
     showDisk();
   };
+
+  // ---------- 公開サイトから Render の断面図APIで作る（REMOTE_MODE）
+  const KEY_STORE = "nwpXsectionKey";
+  const getKey = () => { try { return localStorage.getItem(KEY_STORE) || ""; } catch (e) { return ""; } };
+  const setKey = (v) => { try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch (e) { /* 保存できなくても使える */ } };
+  const esc = (t) => String(t == null ? "" : t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function setupRemote() {
+    $("disk").hidden = true;
+    const em = document.querySelector("input[name=kind][value=emagram]");
+    if (em) em.closest("label").hidden = true;                                // エマグラムは対象外
+    $("rowKey").hidden = false;
+    $("pass").value = getKey();
+    $("pass").onchange = () => setKey($("pass").value.trim());
+    $("intro").innerHTML = "断面図を、サーバー（Render）でその場で作れます。<b>作図に合言葉は要りません</b>（1時間に8回まで）。" +
+      "初回や久しぶりのときはサーバーの起動に<b>1分ほど</b>、データの取得を含めて<b>1〜2分</b>かかります。" +
+      "作った図を<b>公開サイトに載せる</b>ときだけ、渡された合言葉が要ります。下の一覧は、公開されている図です。";
+  }
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function remoteJson(path, opt) {
+    const r = await fetch(REMOTE + path, opt);
+    let j = {};
+    try { j = await r.json(); } catch (e) { /* JSON でない応答 */ }
+    return { r, j };
+  }
+
+  async function goRemote() {
+    const q = new URLSearchParams({ model: $("model").value, init: $("init").value, ft: $("ft").value });
+    for (const id of ["lat1", "lon1", "lat2", "lon2"]) q.set(id, $(id).value);
+    q.set("shade", document.querySelector("input[name=shade]:checked").value);
+    q.set("contours", [...document.querySelectorAll("input[name=cont]:checked")].map((e) => e.value).join(","));
+    q.set("barbs", document.querySelector("input[name=barbs]:checked").value);
+    const fail = (t) => { $("msg").textContent = t; $("msg").className = "err"; $("go").disabled = false; };
+    $("go").disabled = true; $("msg").className = ""; $("msg").textContent = "サーバーに接続しています…（久しぶりのときは起動に1分ほどかかります）";
+    try {
+      let { r, j } = await remoteJson("/api/xsection?" + q);
+      if (!r.ok && r.status !== 202) return fail(j.error || `作図できません（HTTP ${r.status}）`);
+      const t0 = Date.now();
+      while (j.state === "queued" || j.state === "running") {
+        $("msg").textContent = (j.state === "queued" && j.position ? `順番待ちです（前に${j.position}件）` : "作図中です（データ取得が入ると1〜2分かかります）") +
+          `…${Math.round((Date.now() - t0) / 1000)}秒`;
+        await sleep(3000);
+        if (Date.now() - t0 > 12 * 60 * 1000) return fail("時間がかかりすぎています。しばらくしてからもう一度試してください");
+        ({ r, j } = await remoteJson("/api/job/" + encodeURIComponent(j.job)));
+        if (!r.ok) return fail(j.error || `状態を確認できません（HTTP ${r.status}）`);
+      }
+      if (j.state === "error") return fail(j.error || "作図できません");
+      $("msg").textContent = "完了";
+      showRemoteResult({ ...j, url: REMOTE + j.url }, false);
+    } catch (e) { return fail("サーバーに接続できません（しばらくしてからもう一度試してください）"); }
+    $("go").disabled = false;
+  }
+
+  // 結果の画像と、公開サイトに載せる／外すボタン。published: 公開サイトに載っているか
+  function showRemoteResult(c, published) {
+    const name = c.name || c.url.split("/").pop();
+    const src = c.url;                                                         // 作ったばかりの図は API の絶対URL・一覧の図は相対URL
+    $("result").innerHTML =
+      `<p id="pubRow"><button id="btnPub">${published ? "公開から外す" : "公開サイトに載せる"}</button> ` +
+      `<span class="note" id="pubMsg">${published ? "公開中です（誰でも見られます）。外すには合言葉が要ります。"
+        : "公開サイトに載せると誰でも見られます（直近10件まで）。合言葉が要ります。作図結果は、しばらくすると API 側から消えます。"}</span></p>` +
+      `<img alt="${esc(c.label)}" src="${esc(src)}">` +
+      (c.legal ? `<p class="note">${esc(c.legal)}</p>` : "");
+    wireRemotePub(name, published);
+  }
+
+  function wireRemotePub(name, published) {
+    const b = $("btnPub"), msg = $("pubMsg"), label = b.textContent;
+    b.onclick = async () => {
+      const key = ($("pass").value || "").trim();
+      if (!key) { msg.textContent = "合言葉を入力してください（上の「合言葉」欄）"; return; }
+      if (!b.dataset.armed) {                                                  // 誤操作を防ぐため2回押して確定する（5秒以内）
+        b.dataset.armed = "1";
+        b.textContent = published ? "本当に外す（もう一度押す）" : "本当に公開する（もう一度押す）";
+        setTimeout(() => { if (b.dataset.armed) { delete b.dataset.armed; b.textContent = label; } }, 5000);
+        return;
+      }
+      b.disabled = true; msg.textContent = "公開サイトへ反映しています…（数十秒かかります）";
+      const undo = (t) => { msg.textContent = t; b.disabled = false; delete b.dataset.armed; b.textContent = label; };
+      try {
+        const { r, j } = await remoteJson(published ? "/api/unpublish" : "/api/publish", {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + key }, body: JSON.stringify({ name }) });
+        if (!r.ok) return undo(j.error || `反映できません（HTTP ${r.status}）`);
+        setKey(key);                                                           // 合っていた合言葉は、この端末に覚えておく
+        b.hidden = true;
+        msg.textContent = (published ? "公開から外しました" : "公開しました") + "。公開サイトへの反映に1〜2分かかります（下の一覧は、そのあと再読み込みすると変わります）。";
+      } catch (e) { undo("反映できません（しばらくしてからもう一度試してください）"); }
+    };
+  }
 
   boot();
 })();

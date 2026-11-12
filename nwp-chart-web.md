@@ -324,6 +324,12 @@ tenkizu_web（天気図・断面図・エマグラムのビューア）で作っ
 - 上限は `disk_limits.json`（任意）で変える。例: `{"grib_gb": 5, "free_warn_gb": 30}`。確認は `python disk_guard.py`。
 - 定期チェックと通知は launchd `com.masahiro.nwp_chart_web_disk`（**6時間おき・2026-11-11 登録済み**。上限超過・空き不足を通知する。ログ `logs/disk_guard.log`）。登録していない環境でも、取得の直前と作図後の整理は動く。登録: `cp launchd/com.masahiro.nwp_chart_web_disk.plist ~/Library/LaunchAgents/ && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.masahiro.nwp_chart_web_disk.plist`。止める: `launchctl bootout gui/$(id -u)/com.masahiro.nwp_chart_web_disk`。
 
+### 公開サイトからも断面図を作る（2026-11-12・Render の API・未デプロイ）
+- 別リポジトリ **nwp_xsection_api**（Render に置く小さな API）が断面図を作り、公開サイトの「自由選択」ページから呼ぶ。有効にするには `web/config.js` の `window.NWP_XSECTION_API` に API の URL を入れて push する（`deploy-web.yml` が画面だけ反映）。**空のままなら従来どおり公開版は閲覧専用**で、ローカルサーバーの挙動は変わらない。
+- 画面（`web/custom.js` の `REMOTE_MODE`）: 作図は合言葉なし（回数制限あり）。作図は非同期（受付→ポーリング。初回は起動に1分・取得込みで1〜2分）。「公開サイトに載せる」は合言葉の欄が要り、2回押して確定。対象は断面図だけ（エマグラムの選択は隠す）。
+- 公開すると、API が GitHub の gh-pages の `output/custom/`（画像と `list.json`）に書き込む。形式はローカルの `publish.py --custom` と同じ（`by` に呼び名が入る）。
+- 運用（合言葉・トークン・デプロイ）は nwp_xsection_api の README・DEPLOY.md を参照。
+
 ### 困ったとき
 - **新しい機能が効かない・画面が古い**: 古いサーバーが残っていて、新しく起動したサーバーがポート使用中で起動に失敗していることがある。`lsof -nP -iTCP:8790 -sTCP:LISTEN` で待ち受けているプロセスの起動時刻を確認し、止めて起動し直す。URL の `#` 以降だけを変えて開いても再読み込みされないので、Cmd+Shift+R で再読み込みする。
 - 「ディスクの空きが少ないため…取得できません」: 空きが5GB未満（`free_min_gb`）。不要なファイルを消すか、`disk_limits.json` で下げる。`python disk_guard.py` で使用量を確認。
@@ -332,3 +338,4 @@ tenkizu_web（天気図・断面図・エマグラムのビューア）で作っ
 ### 追加・変更したファイル
 - 新規: `xsection.py`（断面）・`emagram.py`（エマグラム）・`custom.py`（自由選択）・`disk_guard.py`・`make_coast.py`（地図用の海岸線 `web/coast.json`）・`web/custom.html`・`web/custom.js`・launchd 雛形・テスト。
 - 変更（後方互換）: `nwp_data.py`（`CUSTOM_PLEVELS`・取得と読み込みで気圧面を指定できる。既定は従来の7層）、`gsm_source.py`（GSM も13層を読む）、`nwp_charts.py`（見出しの `_caption` が図の大きさを指定できる）、`server.py`（`/api/custom`・`/api/custom/list`・`/api/custom/publish`・`/api/disk`）、`publish.py`（`--custom`・`--custom-remove`）、`web/index.html`・`web/app.js`（自由選択へのリンクと「別の図を並べる」）・`web/style.css`。
+| 2026-11-12 | **公開サイトからも断面図を作れる仕組みを追加**（`web/config.js` の `NWP_XSECTION_API` に Render の断面図API（別リポジトリ nwp_xsection_api）のURLを入れると有効。空なら従来どおり公開版は閲覧専用）。作図は認証なし・公開サイトへの掲載だけ合言葉。詳しくは [nwp-xsection-api.md](nwp-xsection-api.md)。**API 側の Render デプロイは未実施のため、公開サイトでは現時点で無効（URL が空）** |
