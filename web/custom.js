@@ -151,7 +151,7 @@
   const MAX_HIST = 10;
   let LOCAL = true;                                    // ローカルサーバーか（公開サイトでは閲覧だけ）
   // 公開サイトでも、Render の断面図API（nwp_xsection_api）が設定されていれば、断面図を作れる（config.js の NWP_XSECTION_API）。
-  // 作図は認証なし（回数制限あり）・公開サイトへの掲載だけ合言葉が要る。エマグラムは対象外。
+  // 作図（断面図・エマグラム）は認証なし（回数制限あり）・公開サイトへの掲載だけ合言葉が要る。
   const REMOTE = String(window.NWP_XSECTION_API || "").replace(/\/+$/, "");
   let REMOTE_MODE = false;
   async function detectLocal() {
@@ -259,12 +259,10 @@
 
   function setupRemote() {
     $("disk").hidden = true;
-    const em = document.querySelector("input[name=kind][value=emagram]");
-    if (em) em.closest("label").hidden = true;                                // エマグラムは対象外
     $("rowKey").hidden = false;
     $("pass").value = getKey();
     $("pass").onchange = () => setKey($("pass").value.trim());
-    $("intro").innerHTML = "断面図を、サーバー（Render）でその場で作れます。<b>作図に合言葉は要りません</b>（1時間に8回まで）。" +
+    $("intro").innerHTML = "断面図・エマグラムを、サーバー（Render）でその場で作れます。<b>作図に合言葉は要りません</b>（1時間に8回まで）。" +
       "初回や久しぶりのときはサーバーの起動に<b>1分ほど</b>、データの取得を含めて<b>1〜2分</b>かかります。" +
       "作った図を<b>公開サイトに載せる</b>ときだけ、渡された合言葉が要ります。下の一覧は、公開されている図です。";
   }
@@ -278,15 +276,18 @@
   }
 
   async function goRemote() {
+    const k = kind();                                                           // xsection（断面図）／ emagram（エマグラム）
     const q = new URLSearchParams({ model: $("model").value, init: $("init").value, ft: $("ft").value });
-    for (const id of ["lat1", "lon1", "lat2", "lon2"]) q.set(id, $(id).value);
-    q.set("shade", document.querySelector("input[name=shade]:checked").value);
-    q.set("contours", [...document.querySelectorAll("input[name=cont]:checked")].map((e) => e.value).join(","));
-    q.set("barbs", document.querySelector("input[name=barbs]:checked").value);
+    for (const id of k === "xsection" ? ["lat1", "lon1", "lat2", "lon2"] : ["lat", "lon"]) q.set(id, $(id).value);
+    if (k === "xsection") {                                                     // 断面の表示要素（色塗り・等値線・風矢羽）
+      q.set("shade", document.querySelector("input[name=shade]:checked").value);
+      q.set("contours", [...document.querySelectorAll("input[name=cont]:checked")].map((e) => e.value).join(","));
+      q.set("barbs", document.querySelector("input[name=barbs]:checked").value);
+    }
     const fail = (t) => { $("msg").textContent = t; $("msg").className = "err"; $("go").disabled = false; };
     $("go").disabled = true; $("msg").className = ""; $("msg").textContent = "サーバーに接続しています…（久しぶりのときは起動に1分ほどかかります）";
     try {
-      let { r, j } = await remoteJson("/api/xsection?" + q);
+      let { r, j } = await remoteJson("/api/" + k + "?" + q);
       if (!r.ok && r.status !== 202) return fail(j.error || `作図できません（HTTP ${r.status}）`);
       const t0 = Date.now();
       while (j.state === "queued" || j.state === "running") {

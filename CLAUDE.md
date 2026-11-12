@@ -24,8 +24,8 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - 自由選択の GRIB2（`data/custom/`）と画像（`output/custom/`）は `disk_guard.py` が上限を超えた分を古い順に削除する。GSM・作図済み画像は警告のみ。launchd `com.masahiro.nwp_chart_web_disk`（6時間おき・2026-11-11 登録済み・ログ `logs/disk_guard.log`）が定期的に実行して通知する。
 
 ## 公開サイトからの断面図（Render の API・2026-11-12 有効化。API 側は別リポジトリ nwp_xsection_api）
-- `web/config.js` の `window.NWP_XSECTION_API`（Render の URL）が**空なら従来どおり**（公開版は閲覧専用）。URL を入れて push すると `web/custom.js` が `REMOTE_MODE` になり、公開サイトで断面図を作れる（作図は認証なし・公開サイトへの掲載だけ合言葉）。API の応答形式（`/api/xsection`・`/api/job/<id>`・`/api/publish`）を変えたら nwp_xsection_api と一緒に直す。
-- ローカルサーバー（`LOCAL=true`）の挙動は変えない（`REMOTE_MODE` は `!LOCAL && REMOTE` のときだけ）。エマグラムは API の対象外。
+- `web/config.js` の `window.NWP_XSECTION_API`（Render の URL）が**空なら従来どおり**（公開版は閲覧専用）。URL を入れて push すると `web/custom.js` が `REMOTE_MODE` になり、公開サイトで断面図を作れる（作図は認証なし・公開サイトへの掲載だけ合言葉）。API の応答形式（`/api/xsection`・`/api/emagram`・`/api/job/<id>`・`/api/publish`）を変えたら nwp_xsection_api と一緒に直す。
+- ローカルサーバー（`LOCAL=true`）の挙動は変えない（`REMOTE_MODE` は `!LOCAL && REMOTE` のときだけ）。断面図・エマグラムの両方が API の対象（`/api/xsection`・`/api/emagram`）。
 - API が gh-pages の `output/custom/`（画像と `list.json`）を Contents API で書く。`list.json` の形式は `publish.py --custom` と同じ（`by` は追加項目）。`sync_web` は `config.js` も反映する（公開に URL が載るが秘密ではない）。**2026-11-12 に Render の URL（`https://nwp-xsection-api.onrender.com`）を設定済み**（API 側は実機で作図・`publish: true` を確認済み）。無効に戻すときは `NWP_XSECTION_API` を空にして push。
 
 ## GSM（ローカル専用モデル）

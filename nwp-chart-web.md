@@ -326,7 +326,7 @@ tenkizu_web（天気図・断面図・エマグラムのビューア）で作っ
 
 ### 公開サイトからも断面図を作る（2026-11-12・Render の API・有効化済み）
 - 別リポジトリ **nwp_xsection_api**（Render に置く小さな API）が断面図を作り、公開サイトの「自由選択」ページから呼ぶ。`web/config.js` の `window.NWP_XSECTION_API` に API の URL（`https://nwp-xsection-api.onrender.com`）を入れてある（push すると `deploy-web.yml` が画面だけ反映）。**空にすれば従来どおり公開版は閲覧専用**に戻り、ローカルサーバーの挙動は変わらない。
-- 画面（`web/custom.js` の `REMOTE_MODE`）: 作図は合言葉なし（回数制限あり）。作図は非同期（受付→ポーリング。初回は起動に1分・取得込みで1〜2分）。「公開サイトに載せる」は合言葉の欄が要り、2回押して確定。対象は断面図だけ（エマグラムの選択は隠す）。
+- 画面（`web/custom.js` の `REMOTE_MODE`）: 作図は合言葉なし（回数制限あり）。作図は非同期（受付→ポーリング。初回は起動に1分・取得込みで1〜2分）。「公開サイトに載せる」は合言葉の欄が要り、2回押して確定。断面図・エマグラムの両方を作れる（種類で呼び先が変わる）。
 - 公開すると、API が GitHub の gh-pages の `output/custom/`（画像と `list.json`）に書き込む。形式はローカルの `publish.py --custom` と同じ（`by` に呼び名が入る）。
 - 運用（合言葉・トークン・デプロイ）は nwp_xsection_api の README・DEPLOY.md を参照。
 
@@ -339,3 +339,4 @@ tenkizu_web（天気図・断面図・エマグラムのビューア）で作っ
 - 新規: `xsection.py`（断面）・`emagram.py`（エマグラム）・`custom.py`（自由選択）・`disk_guard.py`・`make_coast.py`（地図用の海岸線 `web/coast.json`）・`web/custom.html`・`web/custom.js`・launchd 雛形・テスト。
 - 変更（後方互換）: `nwp_data.py`（`CUSTOM_PLEVELS`・取得と読み込みで気圧面を指定できる。既定は従来の7層）、`gsm_source.py`（GSM も13層を読む）、`nwp_charts.py`（見出しの `_caption` が図の大きさを指定できる）、`server.py`（`/api/custom`・`/api/custom/list`・`/api/custom/publish`・`/api/disk`）、`publish.py`（`--custom`・`--custom-remove`）、`web/index.html`・`web/app.js`（自由選択へのリンクと「別の図を並べる」）・`web/style.css`。
 | 2026-11-12 | **公開サイトからも断面図を作れる仕組みを追加**（`web/config.js` の `NWP_XSECTION_API` に Render の断面図API（別リポジトリ nwp_xsection_api）のURLを入れると有効。空なら従来どおり公開版は閲覧専用）。作図は認証なし・公開サイトへの掲載だけ合言葉。詳しくは [nwp-xsection-api.md](nwp-xsection-api.md)。**Render にデプロイ済み・実機で作図確認済み（最大メモリ197MB・72〜75秒）。同日、`config.js` に URL を設定して公開サイトで有効化** |
+| 2026-11-12 | 公開サイトからのエマグラム作図に対応（nwp_xsection_api に `/api/emagram` を追加。画面で断面図／エマグラムを選べる）。自由選択の一覧と「別の図を並べる」に登録日時（公開した時刻）を表示 |
