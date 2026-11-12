@@ -65,7 +65,7 @@
 
 ## 公開の方式（2026-11-04 更新: 公開ブランチ方式）
 
-GitHub Pages の配信元を **gh-pages ブランチ**にし、画像と画面ファイルをそこへ入れる。
+GitHub Pages の配信元を **gh-pages ブランチ**にし、画像と画面ファイルをそこへ入れる（画面ファイルは `deploy-web` だけが反映し、モデルの公開は画面に触れない）。
 
 - **画面だけの修正**: `web/**` を push → `deploy-web.yml` が画像を作らず画面ファイルだけを反映（数十秒）。
 - **データの更新**: `update-model.yml`（GitHub の cron は1日11回 UTC 1:30/4:30/6:30/7:30/9:30/10:30/17:30/18:30/20:30/22:30/23:30。schedule は遅れるため、同じ時の :30 と :55 に cron-job.org からも `workflow_dispatch` で起動＝1日22回。手動実行も可。設定・トークン期限は [CRON_JOB_ORG.md](CRON_JOB_ORG.md)）が**モデルごとに別ジョブで並行**して作図し、できたモデルから公開。各ジョブ内も、全取得完了を待たず取得できたステップから作図する。
@@ -108,6 +108,7 @@ AIFS（ECMWF の AI 予報モデル）は IFS と同じ CC BY 4.0 + ECMWF Terms 
 python publish.py --custom <画像名.png ...> [--dry-run]   # 載せる（output/custom/ の画像。条件ファイル .json が要る）
 python publish.py --custom-remove <画像名.png ...>         # 外す
 ```
+- 一覧（`list.json`）の項目は、API 経由の公開と同じ形式: `ts`＝作図した時刻（条件ファイル `.json` の `created`。画像の最終使用時刻ではない）・`pub`＝公開した時刻（登録日時。画面の一覧に `登録 11/12 12:30` と出る）。
 - 反映先は gh-pages の `output/custom/`（`list.json` と画像）だけ。モデルの画像・画面ファイル・`manifest.json` には触れない（CI の `update-model`・`deploy-web` とも干渉しない）。`list.json` は新しい順・最大20件。
 - 1件は約100〜150KB なので、公開サイトの容量（約0.89GB・1GB の目安）への影響は小さい。**図種・地域・公開個数を増やす前に、容量の節を確認する**。
 - 公開した名前は手元の `output/custom/published.json` に記録される（作図ページの【公開中】の表示に使う）。

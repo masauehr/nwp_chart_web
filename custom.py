@@ -2,7 +2,7 @@
 # coding: utf-8
 """ローカル専用: 任意の断面線・任意の地点で、断面図／エマグラムをその場で作る。
 
-公開サイトは固定（xsection.SECTIONS・emagram.STATIONS）。こちらは server.py の /api/custom から呼ばれ、
+公開サイトで作る場合は、別リポジトリ nwp_xsection_api（Render の API）が同じ作図コードのコピーで作る。こちらは server.py の /api/custom から呼ばれ、
 output/custom/ にPNGを作って返す（同じ条件なら作り直さない）。
 画像ごとに、条件（種類・モデル・初期値・予報時間・地点など）を書いた同名の .json を隣に置く。
 「最近の作図」の一覧は、この画像ファイル（と .json）から作る（ブラウザの保存には頼らない。別のブラウザでも同じ一覧になる）。

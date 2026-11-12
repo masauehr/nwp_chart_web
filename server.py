@@ -7,7 +7,7 @@
   POST /api/update  → 最新データを取得して作図（update_latest.py を裏で実行。ローカルからのみ）
   POST /api/sync    → 公開サイトで作られた画像を手元へ取り込む（sync_public.py を裏で実行。ローカルからのみ）
   GET  /api/status  → 更新ジョブの状態とログ末尾
-  GET  /api/custom  → 任意の断面線・地点で断面図／エマグラムを作る（custom.py。ローカルのみ）
+  GET  /api/custom  → 任意の断面線・地点で断面図／エマグラムを作る（custom.py。ローカルのみ。公開サイトからの作図は別リポジトリ nwp_xsection_api の API）
                       ?kind=xsection&model=gfs&init=YYYYMMDDHH&ft=12&lat1=45&lon1=130&lat2=25&lon2=130[&shade=rh&contours=theta,ept&barbs=back]
                       ?kind=emagram&model=gfs&init=YYYYMMDDHH&ft=12&lat=26.2&lon=127.7
   GET  /api/custom/list → 自由選択で作った画像の「最近の作図」（直近10件・新しい順。画像ファイルから作る）

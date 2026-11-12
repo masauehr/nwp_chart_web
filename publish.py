@@ -4,20 +4,25 @@
 
 目的:
   - 画面（web/）だけを直したときは、画像を作らずに画面ファイルだけを差し替える（--web-only）
-  - モデルごとに別々に作図した結果を、他のモデルの画像に触れずに反映する（--model）
-  どちらも、公開ブランチの現在の内容を土台にして必要な部分だけを入れ替える。
+  - モデルごとに別々に作図した結果を、他のモデルの画像や画面ファイルに触れずに反映する（--model）
+  - ローカルで作った断面図・エマグラムを公開サイトの一覧に載せる・外す（--custom / --custom-remove。最大20件）
+  どれも、公開ブランチの現在の内容を土台にして必要な部分だけを入れ替える。
 
 公開ブランチの構成: index.html, app.js, style.css, board/ ...（= web/）と output/{model}/{初期値}/... と output/manifest.json
 
 使用例:
   python publish.py --web-only                 # 画面ファイルだけを反映（画像・manifestは触らない）
-  python publish.py --model gfs                # output/gfs の最新2初期値と画面ファイルを反映し、manifestを再生成
+  python publish.py --model gfs                # output/gfs の公開する初期値を反映し、manifestを再生成（画面ファイルには触れない。公開ブランチが無い初回だけ画面も反映）
   python publish.py --model gfs --keep 3       # 残す初期値の数を変える（既定は nwp_data.MODELS の publish_keep と publish_hours）
   python publish.py --pull --model gfs         # 公開済みの output/gfs を手元の output/ へ取り込む（作成済み判定のため）
+  python publish.py --custom <画像名.png ...>  # ローカルで作った断面図・エマグラム（output/custom/）を公開サイトに載せる（新しい順・最大20件。登録日時 pub を付ける）
+  python publish.py --custom-remove <画像名.png ...>   # 公開サイトから外す
   python publish.py --web-only --dry-run       # 何をするかだけ表示（pushしない）
   python publish.py ? / -? / --?               # ヘルプ
 
 仕組み:
+  - 画面の反映（--web-only）と、モデルの公開（--model）は別の仕事。モデルの公開は、ジョブを起動した時点の古い web/ で
+    画面を上書きしてしまうため、画面ファイルに触れない（should_sync_web。2026-11-12 に修正）。
   - 公開ブランチを git worktree で取り出して差分だけ入れ替え、**1コミットの孤立コミット**にして強制pushする
     （履歴を積まないので容量が増え続けない。pushされるのは新しい画像だけで、変わらない画像は再送されない）。
   - 強制pushは --force-with-lease（取得した時点の先頭と一致する場合のみ）。別のジョブと衝突したら取り直して再実行する。
@@ -49,7 +54,7 @@ def git(*args, cwd=ROOT, check=True, capture=True):
 def parse_args():
     p = argparse.ArgumentParser(description="公開ブランチへ画像・画面ファイルを反映する",
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
-    p.add_argument("--model", help="反映するモデル（ecmwf / gfs / aifs）。--pull では取り込むモデル")
+    p.add_argument("--model", help="反映するモデル（ecmwf / gfs / aifs）。画面ファイルには触れない（公開ブランチが無い初回だけ例外）。--pull では取り込むモデル")
     p.add_argument("--web-only", action="store_true", help="画面ファイル(web/)だけを反映する（画像は作らない・触らない）")
     p.add_argument("--pull", action="store_true", help="公開済みの output/{model} を手元の output/ へ取り込む")
     p.add_argument("--keep", type=int, default=None, help="公開する初期値の数（モデルごと。既定: nwp_data.MODELS の publish_keep）")
@@ -188,7 +193,10 @@ def sync_custom(wt: Path, add, remove):
         if "条件は不明" in e["label"]:
             raise RuntimeError(f"{name} は条件が分からない（古い）画像のため公開できません。作図し直してください")
         shutil.copy2(custom.CUSTOM_DIR / name, dst / name)
-        new.append({k: v for k, v in e.items() if k != "published"})     # ローカル専用の項目は載せない
+        item = {k: v for k, v in e.items() if k not in ("published", "created")}   # ローカル専用の項目は載せない
+        item["ts"] = e.get("created") or e["ts"]     # 作図した時刻（e["ts"] は画像の最終使用時刻で、再利用のたびに変わるため条件ファイルの created を優先）
+        item["pub"] = time.time()                    # 公開した時刻＝登録日時（nwp_xsection_api の API 経由の公開と同じ形式）
+        new.append(item)
     skip = set(add) | set(remove or [])
     items = (new + [x for x in old if Path(x["url"]).name not in skip])[:CUSTOM_MAX]
     want = {Path(x["url"]).name for x in items}

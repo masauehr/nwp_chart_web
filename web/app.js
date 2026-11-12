@@ -121,7 +121,7 @@
   const charts2Avail = (region) => (region === "custom" ? (customList().length ? customList().map(customBase) : ["last"]) : chartsAvail(region));
   // 登録した日時（公開した時刻 pub）。無ければ作図した時刻 ts（custom.js と同じ表示）
   const customStamp = (c) => {
-    const t = c.pub || c.ts;
+    const t = c.pub || c.created || c.ts;
     if (!t) return "";
     const d = new Date(t * 1000), p2 = (n) => String(n).padStart(2, "0");
     return "　" + (c.pub ? "登録" : "作図") + " " + (d.getMonth() + 1) + "/" + d.getDate() + " " + p2(d.getHours()) + ":" + p2(d.getMinutes());

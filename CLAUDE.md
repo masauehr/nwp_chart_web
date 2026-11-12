@@ -65,6 +65,7 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - gh-pages を直接編集しない（`publish.py` 経由）。ローカル検証は空の bare リポジトリを `--remote` に指定。
 
 ## 落とし穴
+- ローカルからの公開（`publish.sync_custom`）の一覧項目は、API 経由（nwp_xsection_api の `ghpub`）と同じ形にしてある: `ts`＝作図した時刻（`created`。画像の最終使用時刻ではない）・`pub`＝公開した時刻。どちらかの形を変えたら両方そろえる（`tests/test_publish_custom.py`）。
 - **高度設定 `ptop`**（表示する高度の範囲の上端[hPa]。`xsection.PTOPS`・既定100）は、`custom.py`・`xsection.py`・`emagram.py` と、nwp_xsection_api（`opts.py`・`engine.py`・`xsection.py`・`emagram.py`）の**両方に別々のコピーがある**。直すときは両方。既定（100）のときは条件 `p` に入れない（画像名が従来と同じ）。画面は `web/custom.js` の `q.set("ptop", …)`（ローカルと公開サイトの2か所）。
 - **モデルの公開（`publish.py --model`）は画面ファイル（web/）を上書きしない**（`should_sync_web`。画面の反映は deploy-web だけ。公開ブランチが無い初回だけ例外）。起動時の古い `web/` を持つジョブが、画面を直して push した後に終わって古い画面で上書きし、修正が公開サイトに出なかった（2026-11-12）。画面を直して push したら、公開サイト（gh-pages）の該当ファイルが新しいか確認する。
 - 公開サイトの**公開の上限は20件**（`publish.py` の `CUSTOM_MAX` と nwp_xsection_api の `ghpub.MAX_ITEMS` を同じにする。片方が小さいと、もう一方が公開した分を切り詰める）。

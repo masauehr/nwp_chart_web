@@ -5,20 +5,11 @@
 tenkizu の GRIB2_Emagram.py の描画内容を、格子データ F（nwp_data.load_fields の形式）から作る。
 最寄りの格子点の鉛直プロファイルを取り出し、log(気圧) で細かい層に補間してから描く
 （取得している気圧面は 975/925/850/700/500/300/200hPa と少なく、そのままでは CAPE が粗いため）。
-公開用は主要ゾンデ地点の固定（STATIONS）、ローカルは任意の緯度経度。
+地点は任意の緯度経度（ローカルのサーバーと、公開サイトの Render の API＝nwp_xsection_api の両方で使う）。
 """
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import timedelta
-
-# 公開用の固定地点（高層気象観測所）。(表示名, 緯度, 経度)。座標は観測所のおおよその位置
-STATIONS = {
-    "47401": ("稚内", 45.42, 141.68),
-    "47646": ("館野（つくば）", 36.06, 140.13),
-    "47778": ("潮岬", 33.45, 135.76),
-    "47807": ("福岡", 33.58, 130.38),
-    "47936": ("那覇", 26.21, 127.69),
-}
 
 JP_FONT = ["Hiragino Sans", "Noto Sans CJK JP", "Arial Unicode MS", "DejaVu Sans"]
 

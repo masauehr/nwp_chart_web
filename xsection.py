@@ -4,7 +4,7 @@
 
 tenkizu の GSM_CrossSection.py の描画内容を、MetPy の cross_section に頼らず、
 格子データ F（nwp_data.load_fields の形式）から経路上へ直接補間して作る。
-始点・終点は任意（ローカルは自由選択、公開は SECTIONS の固定断面）。
+始点・終点は任意（ローカルのサーバーと、公開サイトの Render の API＝nwp_xsection_api の両方で使う）。
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,13 +13,6 @@ from scipy.ndimage import map_coordinates, gaussian_filter, gaussian_filter1d
 
 R_EARTH = 6.371e6
 KT = 1.94384
-
-# 公開用の固定断面（キー: 図種名の一部）。(表示名, (始点緯度, 始点経度), (終点緯度, 終点経度))
-SECTIONS = {
-    "ns130": ("南北断面 130E（45N→25N）", (45.0, 130.0), (25.0, 130.0)),
-    "ns140": ("南北断面 140E（45N→25N）", (45.0, 140.0), (25.0, 140.0)),
-}
-
 
 # 表示要素（自由選択で選べる）。指定が無ければ従来の見た目（発散の色塗り＋温位・相当温位・断面平行風の線＋前面の風矢羽）
 SHADES = {"none": "なし", "div": "発散", "rh": "湿り（相対湿度）", "omega": "上昇流（ω）"}   # 色塗り。1つだけ選ぶ
