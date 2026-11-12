@@ -127,9 +127,14 @@
     return "　" + (c.pub ? "登録" : "作図") + " " + (d.getMonth() + 1) + "/" + d.getDate() + " " + p2(d.getHours()) + ":" + p2(d.getMinutes());
   };
   const customText = (c) => `${c.label}（${c.model} ${c.initText} ＋${c.ft}h）${customStamp(c)}`;
-  const regionLabel2 = (r) => (r === "custom" ? (S.local ? "自由選択（断面図・エマグラム）" : "保存された断面図・エマグラム（公開分）") : (S.manifest.regions[r] || r));
+  // 公開サイトでも、断面図API（config.js の NWP_XSECTION_API）があれば断面図・エマグラムを作れる。表記はそれに合わせる
+  // （作れない公開サイトだけ、以前の「保存された…」。右に並べられるのは、作った図のうち公開されたものだけ）
+  const canMake = () => S.local || !!window.NWP_XSECTION_API;
+  const CUSTOM_NAME = "断面図・エマグラム作成";
+  const customName = () => (canMake() ? CUSTOM_NAME : "保存された断面図・エマグラム");
+  const regionLabel2 = (r) => (r === "custom" ? (S.local ? CUSTOM_NAME : customName() + "（公開分）") : (S.manifest.regions[r] || r));
   const chartLabel2 = (region, chart) => {
-    if (region === "custom") { const c = customFind(chart); return c ? customText(c) : "自由選択（まだ作図していません）"; }
+    if (region === "custom") { const c = customFind(chart); return c ? customText(c) : `${CUSTOM_NAME}（まだ作図していません）`; }
     return S.manifest.charts[chart] || chart;
   };
   const firstChart2 = (region, charts) => charts[0];
@@ -351,11 +356,12 @@
     if (S.region2 !== "custom") return renderView(2, S.model, S.region2, S.chart2);
     const c = customFind(S.chart2), img = $("chartImg2"), nodata = $("noData2");
     if (!c) {
-      nodata.innerHTML = "まだ自由選択（断面図・エマグラム）で作図していません。<a href=\"custom.html\">自由選択のページ</a>で作図すると、ここに並べて表示できます。";
+      nodata.innerHTML = canMake() ? `まだ${S.local ? "" : "公開された"}図がありません。<a href="custom.html">${CUSTOM_NAME}のページ</a>で作図${S.local ? "" : "して公開"}すると、ここに並べて表示できます。`
+                                   : "公開された断面図・エマグラムはまだありません。";
       nodata.hidden = false; img.removeAttribute("src"); return null;
     }
     nodata.hidden = true;
-    img.onerror = () => { nodata.textContent = "自由選択の画像が見つかりません（ディスクの整理で削除された可能性があります。もう一度作図してください）"; nodata.hidden = false; };
+    img.onerror = () => { nodata.textContent = "断面図・エマグラムの画像が見つかりません（ディスクの整理で削除された可能性があります。もう一度作図してください）"; nodata.hidden = false; };
     img.src = c.url;
     return { custom: c };
   }
@@ -369,9 +375,9 @@
   }
   function capCustom() {
     const c = customFind(S.chart2);
-    const name = S.local ? "自由選択（断面図・エマグラム）" : "保存された断面図・エマグラム";   // 公開サイトでは新しく作れないので「自由選択」とは出さない
+    const name = S.local ? CUSTOM_NAME : customName();
     return c ? `<b>${name}</b> ｜ ${esc(c.label)} ｜ ${esc(c.model)} 初期値 ${esc(c.initText)} ＋${c.ft}h（作図済みの画像。予報時間とは連動しません）`
-             : "<b>自由選択（断面図・エマグラム）</b> ｜ 未作図";
+             : `<b>${CUSTOM_NAME}</b> ｜ 未作図`;
   }
 
   // 比較モードの見出し: モデル名・初期値・予報時間（初期値が違う/刻みが合わない場合は分かるように）
@@ -425,7 +431,7 @@
         : `初期値 ${fmt(d, 0, "UTC")} ／ <b>FT=${S.ft}h</b> ／ 予報時刻 <b>${fmt(d, S.ft, "UTC")}</b>`;
     applySize();                                  // timeInfo の行数で画像の開始位置が変わるため、収まる高さを再計算
 
-    if (S.fig) $("timeInfo").innerHTML += " ／ 右の図も同じ予報時間（自由選択の画像は固定）";
+    if (S.fig) $("timeInfo").innerHTML += " ／ 右の図も同じ予報時間（断面図・エマグラムの画像は固定）";
     buildThumbs();
     preload();
     saveHash();
@@ -749,13 +755,14 @@
     } catch (e) { /* 無視 */ }
   });
 
-  // 自由選択（断面図・エマグラム）のリンク: ローカルなら作図できるページ、公開サイトなら公開された図があるときだけ出す
+  // 断面図・エマグラム作成のリンク: ローカルと、断面図APIのある公開サイトは作図できるページ。APIの無い公開サイトは、公開された図があるときだけ出す
   async function showCustomLink() {
     const a = $("lnkCustom");
     try {
       const j = await (await fetch(API + "custom/list", { cache: "no-store" })).json();
-      if (Array.isArray(j.items)) { a.textContent = "自由選択（断面図・エマグラム）"; a.hidden = false; return; }
+      if (Array.isArray(j.items)) { a.textContent = CUSTOM_NAME; a.hidden = false; return; }
     } catch (e) { /* 公開サイトにはこの API が無い */ }
+    if (window.NWP_XSECTION_API) { a.textContent = CUSTOM_NAME; a.hidden = false; return; }          // 公開サイトでも作れる（図が1つも無くてもリンクを出す）
     try {
       const j = await (await fetch(OUT + "custom/list.json", { cache: "no-store" })).json();
       if (j.items && j.items.length) { a.textContent = "保存された断面図・エマグラム"; a.hidden = false; }

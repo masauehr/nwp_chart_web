@@ -340,3 +340,4 @@ tenkizu_web（天気図・断面図・エマグラムのビューア）で作っ
 - 変更（後方互換）: `nwp_data.py`（`CUSTOM_PLEVELS`・取得と読み込みで気圧面を指定できる。既定は従来の7層）、`gsm_source.py`（GSM も13層を読む）、`nwp_charts.py`（見出しの `_caption` が図の大きさを指定できる）、`server.py`（`/api/custom`・`/api/custom/list`・`/api/custom/publish`・`/api/disk`）、`publish.py`（`--custom`・`--custom-remove`）、`web/index.html`・`web/app.js`（自由選択へのリンクと「別の図を並べる」）・`web/style.css`。
 | 2026-11-12 | **公開サイトからも断面図を作れる仕組みを追加**（`web/config.js` の `NWP_XSECTION_API` に Render の断面図API（別リポジトリ nwp_xsection_api）のURLを入れると有効。空なら従来どおり公開版は閲覧専用）。作図は認証なし・公開サイトへの掲載だけ合言葉。詳しくは [nwp-xsection-api.md](nwp-xsection-api.md)。**Render にデプロイ済み・実機で作図確認済み（最大メモリ197MB・72〜75秒）。同日、`config.js` に URL を設定して公開サイトで有効化** |
 | 2026-11-12 | 公開サイトからのエマグラム作図に対応（nwp_xsection_api に `/api/emagram` を追加。画面で断面図／エマグラムを選べる）。自由選択の一覧と「別の図を並べる」に登録日時（公開した時刻）を表示 |
+| 2026-11-12 | 公開サイトの作図で「ジョブが見つかりません」が出る不具合を修正（画面がジョブIDを失うバグ）。サーバー起動待ち・再起動時の自動やり直しを追加。画面の表記を「自由選択」「保存された断面図・エマグラム」から「断面図・エマグラム作成」に変更（作れる公開サイトのとき）|

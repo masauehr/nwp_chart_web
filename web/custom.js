@@ -180,7 +180,7 @@
     $("result").innerHTML = (LOCAL
       ? `<p><a href="${link}" target="_blank" rel="noopener">通常版の左の図と並べて見る（通常版を開く）</a>` +
         `<span class="note">　通常版の「別の図を並べる」で、右の図を選び直せます</span></p><p id="pubRow"><button id="btnPub">${c.published ? "公開から外す" : "公開サイトに載せる"}</button> ` +
-        `<span class="note" id="pubMsg">${c.published ? "公開中です（公開サイトの「保存された断面図・エマグラム」で、誰でも見られます）"
+        `<span class="note" id="pubMsg">${c.published ? "公開中です（公開サイトのこのページの一覧と、通常版の「別の図を並べる」で、誰でも見られます）"
           : "公開サイトに載せると、誰でも見られます（直近10件まで。古いものから外れます）"}</span></p>` : "") +
       `<img alt="${histText(c)}" src="${c.url}">`;
     if (LOCAL) wirePub(c);
@@ -285,21 +285,42 @@
       q.set("barbs", document.querySelector("input[name=barbs]:checked").value);
     }
     const fail = (t) => { $("msg").textContent = t; $("msg").className = "err"; $("go").disabled = false; };
-    $("go").disabled = true; $("msg").className = ""; $("msg").textContent = "サーバーに接続しています…（久しぶりのときは起動に1分ほどかかります）";
+    const say = (t) => { $("msg").className = ""; $("msg").textContent = t; };
+    const t0 = Date.now(), secs = () => Math.round((Date.now() - t0) / 1000);
+    // サーバーがまだ起動していない（無料枠は止まっていると起動に1分ほどかかる）間は、接続できない・Render の 502/503/504（本文が JSON でない）が返る。失敗にせず待つ
+    const starting = (res) => !res.r.ok && !res.j.error && [502, 503, 504].includes(res.r.status);
+    const call = async (path, opt) => {
+      for (;;) {
+        let res = null;
+        try { res = await remoteJson(path, opt); } catch (e) { /* 接続できない＝起動中 */ }
+        if (res && !starting(res)) return res;
+        if (secs() > 240) throw new Error("timeout");
+        say(`サーバーを起動しています…${secs()}秒（止まっていると1分ほどかかります。そのままお待ちください）`);
+        await sleep(4000);
+      }
+    };
+    say("サーバーに接続しています…（久しぶりのときは起動に1分ほどかかります）");
     try {
-      let { r, j } = await remoteJson("/api/" + k + "?" + q);
+      let { r, j } = await call("/api/" + k + "?" + q);
       if (!r.ok && r.status !== 202) return fail(j.error || `作図できません（HTTP ${r.status}）`);
-      const t0 = Date.now();
+      let restarts = 0, jid = j.job;       // ジョブIDは別に持つ（状態確認の応答を j に代入すると、IDが消えて /api/job/undefined になる）
       while (j.state === "queued" || j.state === "running") {
-        $("msg").textContent = (j.state === "queued" && j.position ? `順番待ちです（前に${j.position}件）` : "作図中です（データ取得が入ると1〜2分かかります）") +
-          `…${Math.round((Date.now() - t0) / 1000)}秒`;
+        say((j.state === "queued" && j.position ? `順番待ちです（前に${j.position}件）` : "作図中です（データ取得が入ると1〜2分かかります）") + `…${secs()}秒`);
         await sleep(3000);
-        if (Date.now() - t0 > 12 * 60 * 1000) return fail("時間がかかりすぎています。しばらくしてからもう一度試してください");
-        ({ r, j } = await remoteJson("/api/job/" + encodeURIComponent(j.job)));
+        if (secs() > 12 * 60) return fail("時間がかかりすぎています。しばらくしてからもう一度試してください");
+        ({ r, j } = await call("/api/job/" + encodeURIComponent(jid)));
+        if (r.status === 404) {                                                // サーバーが作図の記録を持っていない＝再起動した。同じ条件の再送は安全（同じ図ならすぐ返る）
+          if (++restarts > 3) return fail("サーバーが何度も再起動しています。しばらくしてからもう一度試してください");
+          say(`サーバーが再起動したようです。作図をやり直しています…（${restarts}回目）`);
+          ({ r, j } = await call("/api/" + k + "?" + q));
+          if (!r.ok && r.status !== 202) return fail(j.error || `作図できません（HTTP ${r.status}）`);
+          jid = j.job;
+          continue;
+        }
         if (!r.ok) return fail(j.error || `状態を確認できません（HTTP ${r.status}）`);
       }
       if (j.state === "error") return fail(j.error || "作図できません");
-      $("msg").textContent = "完了";
+      say("完了");
       showRemoteResult({ ...j, url: REMOTE + j.url }, false);
     } catch (e) { return fail("サーバーに接続できません（しばらくしてからもう一度試してください）"); }
     $("go").disabled = false;

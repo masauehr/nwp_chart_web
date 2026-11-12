@@ -25,6 +25,8 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 
 ## 公開サイトからの断面図（Render の API・2026-11-12 有効化。API 側は別リポジトリ nwp_xsection_api）
 - `web/config.js` の `window.NWP_XSECTION_API`（Render の URL）が**空なら従来どおり**（公開版は閲覧専用）。URL を入れて push すると `web/custom.js` が `REMOTE_MODE` になり、公開サイトで断面図を作れる（作図は認証なし・公開サイトへの掲載だけ合言葉）。API の応答形式（`/api/xsection`・`/api/emagram`・`/api/job/<id>`・`/api/publish`）を変えたら nwp_xsection_api と一緒に直す。
+- **表記**: 作れるとき（ローカル、または `config.js` に API の URL がある公開サイト）は「断面図・エマグラム作成」。作れない公開サイトだけ、以前の「保存された断面図・エマグラム」（`app.js` の `canMake`・`CUSTOM_NAME`）。「自由選択」は画面には出さない（文書の機能名としては残る）。
+- 画面（`custom.js` の `goRemote`）は、ジョブIDを別の変数（`jid`）に持つ（状態確認の応答にはIDが無い場合があるため。過去に `/api/job/undefined` で失敗した）。サーバー停止中（接続不可・502/503）は待ち、記録が消えた（404）ときは同じ条件を自動で再送する（最大3回）。
 - ローカルサーバー（`LOCAL=true`）の挙動は変えない（`REMOTE_MODE` は `!LOCAL && REMOTE` のときだけ）。断面図・エマグラムの両方が API の対象（`/api/xsection`・`/api/emagram`）。
 - API が gh-pages の `output/custom/`（画像と `list.json`）を Contents API で書く。`list.json` の形式は `publish.py --custom` と同じ（`by` は追加項目）。`sync_web` は `config.js` も反映する（公開に URL が載るが秘密ではない）。**2026-11-12 に Render の URL（`https://nwp-xsection-api.onrender.com`）を設定済み**（API 側は実機で作図・`publish: true` を確認済み）。無効に戻すときは `NWP_XSECTION_API` を空にして push。
 

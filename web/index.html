@@ -37,7 +37,7 @@
   <button id="btnPast" title="GSM・JRA-55の過去の初期値を取得して作図します／取得済みの一覧と削除（ローカルのみ）">過去分取得</button>
   <span id="updateMsg"></span>
   <a href="board/" title="複数の図を並べて表示">画用紙版</a>
-  <a href="custom.html" id="lnkCustom" hidden title="任意の断面線・地点で断面図／エマグラムを作る（ローカル）／公開された断面図・エマグラムを見る（公開サイト）">自由選択（断面図・エマグラム）</a>
+  <a href="custom.html" id="lnkCustom" hidden title="任意の断面線・地点で断面図／エマグラムを作る（ローカル・公開サイトとも）。断面図APIの無い公開サイトでは、公開された図を見る">断面図・エマグラム作成</a>
   <span id="updated"></span>
 </header>
 
@@ -123,6 +123,7 @@
   <p id="pastTotal" class="note"></p>
   <div class="pastRow"><button id="pastClose">閉じる</button></div>
 </dialog>
+<script src="config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
