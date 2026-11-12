@@ -119,7 +119,14 @@
   // 自由選択は、ローカルサーバーで開いているとき（作図の有無にかかわらず）か、作図済み・公開済みの図があるときに選べる
   const regions2Avail = () => [...regionsAvail(), ...(S.local || customList().length ? ["custom"] : [])];
   const charts2Avail = (region) => (region === "custom" ? (customList().length ? customList().map(customBase) : ["last"]) : chartsAvail(region));
-  const customText = (c) => `${c.label}（${c.model} ${c.initText} ＋${c.ft}h）`;
+  // 登録した日時（公開した時刻 pub）。無ければ作図した時刻 ts（custom.js と同じ表示）
+  const customStamp = (c) => {
+    const t = c.pub || c.ts;
+    if (!t) return "";
+    const d = new Date(t * 1000), p2 = (n) => String(n).padStart(2, "0");
+    return "　" + (c.pub ? "登録" : "作図") + " " + (d.getMonth() + 1) + "/" + d.getDate() + " " + p2(d.getHours()) + ":" + p2(d.getMinutes());
+  };
+  const customText = (c) => `${c.label}（${c.model} ${c.initText} ＋${c.ft}h）${customStamp(c)}`;
   const regionLabel2 = (r) => (r === "custom" ? (S.local ? "自由選択（断面図・エマグラム）" : "保存された断面図・エマグラム（公開分）") : (S.manifest.regions[r] || r));
   const chartLabel2 = (region, chart) => {
     if (region === "custom") { const c = customFind(chart); return c ? customText(c) : "自由選択（まだ作図していません）"; }

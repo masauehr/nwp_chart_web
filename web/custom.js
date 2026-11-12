@@ -167,7 +167,11 @@
     try { const j = await (await fetch(url, { cache: "no-store" })).json(); return Array.isArray(j.items) ? j.items : []; }
     catch (e) { return []; }
   }
-  const histText = (c) => `${c.label}（${c.model} ${c.initText} ＋${c.ft}h）` + (c.published ? "【公開中】" : "");
+  // 登録した日時（公開した時刻 pub）。無い項目（以前の公開分・ローカルからの公開分）は作図した時刻 ts を「作図」として出す。ブラウザの時刻帯で表示する
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const fmtTs = (sec) => { const d = new Date(sec * 1000); return (d.getMonth() + 1) + "/" + d.getDate() + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes()); };
+  const stampText = (c) => (c.pub ? "　登録 " + fmtTs(c.pub) : c.ts ? "　作図 " + fmtTs(c.ts) : "");
+  const histText = (c) => `${c.label}（${c.model} ${c.initText} ＋${c.ft}h）` + stampText(c) + (c.published ? "【公開中】" : "");
   // 結果の画像を出す。ローカルでは「公開サイトに載せる／外す」も出す
   function showResult(c) {
     if (REMOTE_MODE) return showRemoteResult(c, true);               // 一覧（公開サイトの list.json）の図はすべて公開済み
