@@ -31,7 +31,7 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - API が gh-pages の `output/custom/`（画像と `list.json`）を Contents API で書く。`list.json` の形式は `publish.py --custom` と同じ（`by` は追加項目）。`sync_web` は `config.js` も反映する（公開に URL が載るが秘密ではない）。**2026-11-12 に Render の URL（`https://nwp-xsection-api.onrender.com`）を設定済み**（API 側は実機で作図・`publish: true` を確認済み）。無効に戻すときは `NWP_XSECTION_API` を空にして push。
 
 ## GSM（ローカル専用モデル）
-- **GSM の画像・データは公開しない**。`nwp_data.MODELS["gsm"]` の `local_only` が基準。`publish.py`（`--model gsm` も `--pull` も拒否）、公開用manifest（`write_manifest(public_only=True)`）、`build_site.py`、CIの対象一覧で除外している。**これらを外さない**。新しいローカル専用モデルを足すなら `local_only` を付ける。
+- **GSM の画像・データは公開しない**。`nwp_data.MODELS["gsm"]` の `local_only` が基準。`publish.py`（`--model gsm` も `--pull` も拒否）、公開用manifest（`write_manifest(public_only=True)`）、`build_site.py`、CIの対象一覧で除外している。**これらを外さない**。新しいローカル専用モデルを足すなら `local_only` を付ける。**ただし例外（2026-11-12 ユーザー決定）**: 自由選択（断面図・エマグラム）で作った GSM の図は、画面で2回押して手動で載せたものに限り公開してよい（定期更新・自動の公開は引き続き GSM を除外。配信元の再配布条件は未確認のまま、ユーザーが認めた）。
 - GSMはRISHからファイル全体を取得し、`data/gsm/` に**残す**（作図のたびには削除しない。3日超は自動取得の `--keep-days` が消す。取得済みの `gsm_chart_web/data/gsm` は `--data-dir` で再利用）。既定のFT間隔は3（日本域0.125°が3時間毎）。地域 `japan3`/`okinawa3` はGSM専用（`REGIONS` の `models`/`src`）。
 - GSM は launchd（`launchd/*.plist`、`~/Library/LaunchAgents/`）で 00/12UTC のみ自動取得。`--init-hours 0 12 --keep-days 3` で3日より古い PNG/GRIB2 を削除（実測 初回13分42秒）。
 - `gsm_source.py` は `gsm_chart_web/gsm_data.py` のコピー（共通部品化しない）。
