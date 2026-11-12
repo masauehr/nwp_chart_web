@@ -229,6 +229,7 @@
   $("go").onclick = async () => {
     if (REMOTE_MODE) return goRemote();
     const q = new URLSearchParams({ kind: kind(), model: $("model").value, init: $("init").value, ft: $("ft").value });
+    q.set("ptop", $("ptop").value);                                    // 高度設定（表示する高度の範囲の上端[hPa]）
     for (const id of kind() === "xsection" ? ["lat1", "lon1", "lat2", "lon2"] : ["lat", "lon"]) q.set(id, $(id).value);
     if (kind() === "xsection") {                                       // 断面の表示要素（色塗り・等値線・風矢羽）
       q.set("shade", document.querySelector("input[name=shade]:checked").value);
@@ -278,6 +279,7 @@
   async function goRemote() {
     const k = kind();                                                           // xsection（断面図）／ emagram（エマグラム）
     const q = new URLSearchParams({ model: $("model").value, init: $("init").value, ft: $("ft").value });
+    q.set("ptop", $("ptop").value);                                             // 高度設定（表示する高度の範囲の上端[hPa]）
     for (const id of k === "xsection" ? ["lat1", "lon1", "lat2", "lon2"] : ["lat", "lon"]) q.set(id, $(id).value);
     if (k === "xsection") {                                                     // 断面の表示要素（色塗り・等値線・風矢羽）
       q.set("shade", document.querySelector("input[name=shade]:checked").value);

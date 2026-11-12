@@ -49,7 +49,14 @@ def validate(kind, model, init_s, ft, q):
     if not re.fullmatch(r"\d{10}", init_s or ""):
         raise CustomError("初期値は YYYYMMDDHH（UTC）で指定してください")
     ft = int(_num(ft, "予報時間", 0, 360))
+    import xsection
+    try:
+        ptop = xsection.parse_ptop(q.get("ptop"))      # 高度設定（表示する高度の範囲の上端）
+    except ValueError as e:
+        raise CustomError(str(e))
     p = dict(kind=kind, model=model, init=init_s, ft=ft)
+    if ptop != xsection.DEFAULT_PTOP:                  # 既定のときは p に入れない（画像名が従来と同じになる）
+        p["ptop"] = ptop
     if kind == "xsection":
         c = nwp_data.CROP        # データを読む範囲（東経50〜185度・北緯−15〜82度）の中に限る
         p.update(lat1=_num(q.get("lat1"), "始点の緯度", c["lat0"], c["lat1"]), lon1=_num(q.get("lon1"), "始点の経度", c["lon0"], c["lon1"]),
@@ -64,7 +71,7 @@ def validate(kind, model, init_s, ft, q):
         raw = q.get("contours")
         try:
             o = xsection.normalize_opts(dict(shade=q.get("shade") or None, barbs=q.get("barbs") or None,
-                                             contours=None if raw is None else [c for c in raw.split(",") if c]))
+                                             contours=None if raw is None else [c for c in raw.split(",") if c], ptop=ptop))
         except ValueError as e:
             raise CustomError(str(e))
         p.update(shade=o["shade"], contours=",".join(o["contours"]), barbs=o["barbs"])
@@ -109,12 +116,12 @@ def describe(p):
             import xsection
             base += " ｜ " + xsection.options_text(opts_of(p))
         return base
-    return f"エマグラム ({p['lat']:g}N,{p['lon']:g}E)"
+    return f"エマグラム ({p['lat']:g}N,{p['lon']:g}E)" + (f" ｜ 上端{p['ptop']}hPa" if "ptop" in p else "")
 
 
 def opts_of(p):
     """条件 p から、xsection.render_xsection に渡す表示要素の指定を作る。"""
-    return dict(shade=p.get("shade"), barbs=p.get("barbs"),
+    return dict(shade=p.get("shade"), barbs=p.get("barbs"), ptop=p.get("ptop"),
                 contours=None if p.get("contours") is None else [c for c in p["contours"].split(",") if c])
 
 
@@ -197,7 +204,7 @@ def render(p):
         else:
             import emagram
             try:
-                emagram.render_emagram(F, init, p["ft"], p["lat"], p["lon"], str(tmp), model=label)
+                emagram.render_emagram(F, init, p["ft"], p["lat"], p["lon"], str(tmp), model=label, ptop=p.get("ptop", 100))
             except ValueError as e:
                 raise CustomError(str(e))
         tmp.replace(out)
