@@ -414,6 +414,7 @@
     const shown = new Set(visible().filter((i) => i.chart === it.chart && effRegion(i) === region).map(effModel));
     let n = 0;
     for (const m of modelKeys()) {
+      if ((S.m.models[m] || {}).analysis) continue;   // 再解析（JRA-55）は過去分のみなので、モデル違いでは追加しない
       if (shown.has(m) || !has(m, region, it.chart)) continue;
       S.items.push(newItem(it.chart, { region: it.region, model: m, primary: false, w: it.w }));
       n++;
