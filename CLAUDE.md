@@ -85,4 +85,4 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - 更新APIはローカル限定（`_local_only`）。外せない。
 - 公開（Pages・public化）は勝手にしない。ユーザー確認を取る。
 - **出典・ライセンス・免責・改変の表示は外さない**（ECMWF CC BY 4.0 の要件）。文言は `nwp_data.legal_text()`、manifest経由で表示。規約の根拠は PUBLISH.md。
-- **温位エマグラム（`pt=1`・2026-11-13）**: モデルのエマグラムに「図」の選択（横軸が温位。`emagram.render_emagram(pt=True)`）。**ローカルのみ**で、Render の API（nwp_xsection_api）は未対応（公開サイトの作図では選択欄を隠す）。API 対応するなら nwp_xsection_api の `emagram.py`・`opts.py`・`engine.py` にも別コピーで足す。既定（通常のエマグラム）は条件 `p` に入れない（画像名が従来と同じ）。
+- **温位エマグラム（`pt=1`・2026-11-13）**: モデルのエマグラムに「図」の選択（横軸が温位。`emagram.render_emagram(pt=True)`）。Render の API（nwp_xsection_api）にも同じ実装を別コピーで入れてある（`emagram.py`・`engine.py`）。直すときは両方。画面は `web/custom.js` の `q.set("pt", …)`（ローカルと公開サイトの2か所）。既定（通常のエマグラム）は条件 `p` に入れない（画像名が従来と同じ）。
