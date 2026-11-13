@@ -124,7 +124,7 @@
     const t = c.pub || c.created || c.ts;
     if (!t) return "";
     const d = new Date(t * 1000), p2 = (n) => String(n).padStart(2, "0");
-    return "　" + (c.pub ? "登録" : "作図") + " " + (d.getMonth() + 1) + "/" + d.getDate() + " " + p2(d.getHours()) + ":" + p2(d.getMinutes());
+    return "　" + (c.pub ? "登録" : "作図") + " " + (d.getMonth() + 1) + "/" + d.getDate() + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()) + (c.pub && c.by ? "（" + c.by + "）" : "");
   };
   const customText = (c) => `${c.label}（${c.model} ${c.initText} ＋${c.ft}h）${customStamp(c)}`;
   // 公開サイトでも、断面図API（config.js の NWP_XSECTION_API）があれば断面図・エマグラムを作れる。表記はそれに合わせる
