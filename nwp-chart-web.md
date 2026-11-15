@@ -132,6 +132,7 @@ python make_charts.py ?                     # ヘルプ
 - 公開の可否・方式・手順・容量見積もりは **PUBLISH.md**。**公開（public化・Pages有効化）は未実施**。
 - **出典・ライセンス・免責・改変の表示**を画面に常時出している（ECMWF: 著作権表示・「based on data and products of ECMWF」・CC BY 4.0・免責・改変の明示、NOAA: 出典と取得日・改変の明示・NOAA/NWS非推奨・免責）。文言は `nwp_data.legal_text()`、規約の根拠と未確認事項は PUBLISH.md。
 - 0.25°データは、東アジア広域の `ept850` で等値線が細かくなる（今後の調整余地）。
+- **画像の先読みは現在のFTの前後だけ**（通常版 `web/app.js` の `preload()`・先の4枚と前の1枚・端は循環。2026-11-15）。以前は全FTを一斉に読み、GitHub Pages のレート制限（「Rate limit exceeded」）に掛かった。Safari の iCloud プライベートリレー（出口IPを多数で共有）で再現し、リレーをオフにすると表示できた。画用紙版（`board.js`）は元から前後1枚。
 
 ## 公開の仕組み（公開ブランチ方式）
 

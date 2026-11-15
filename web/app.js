@@ -473,9 +473,19 @@
     }
   }
 
-  // 同じ図種の全FTを先読み（アニメーション用。比較中は両モデル分）
+  // 同じ図種の現在のFTの前後だけを先読み（アニメーション用。比較中は両モデル分）
+  // 全FTを一度に読むと、GitHub Pages のレート制限（共有IP・プライベートリレー等）に掛かるため、前後数枚に絞る。
+  // 再生中は update() のたびに呼ばれるので、先の数枚が順に読み込まれる
+  const PRELOAD_AHEAD = 4, PRELOAD_BEHIND = 1;
   function preload() {
-    for (const ft of fts()) {
+    const all = fts(), n = all.length, i = all.indexOf(S.ft);
+    if (i < 0) return;
+    const near = [];
+    for (let k = -PRELOAD_BEHIND; k <= PRELOAD_AHEAD; k++) {
+      if (k === 0) continue;
+      near.push(all[(i + k + n * 2) % n]);          // 端は循環（再生の動きに合わせる）
+    }
+    for (const ft of near) {
       for (const model of shownModels()) {
         const r = resolve(model, S.region, S.chart, ft);
         if (!r) continue;
