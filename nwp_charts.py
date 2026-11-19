@@ -37,19 +37,28 @@ MAP_RECT = [0.002, 42 / 760, 0.996, 716 / 760]
 MAP_ASPECT = (0.996 * 9.5) / (716 / 100)  # 地図部分の縦横比（幅/高さ）
 
 # ---------------------------------------------------------------- 地域定義
+# 等値線ラベルの「重点域」（lon0,lon1,lat0,lat1）。地域の label_zones に名前で指定すると、
+# その箱の中を通る等値線には、自動配置でラベルが付かなかった場合でも必ず1つラベルを付ける。
+# 他の地域にも使えるよう名前で定義する（足すときはここへ1行、地域側に名前を書くだけ）。
+LABEL_ZONES = {
+    "east_china_sea": (121.0, 131.0, 25.0, 33.0),   # 東シナ海
+}
+
 # center: 投影中心(lon,lat)  width_km: 地図幅  bbox: データ切り出し範囲(lon0,lon1,lat0,lat1)
 REGIONS = {
     "japan": dict(label="日本周辺", kind="lcc", center=(133.0, 36.0), width_km=4400,
                   bbox=(95, 180, 5, 68), barb_n=20, coast="10m", zoom=2),
     "okinawa": dict(label="沖縄周辺", kind="pc", center=(128.0, 27.0), width_deg=24.0,
-                    bbox=(105, 152, 8, 46), barb_n=16, coast="10m", zoom=3, exclude=("jra55",)),   # JRA-55は1.25°と粗いので作らない
+                    bbox=(105, 152, 8, 46), barb_n=16, coast="10m", zoom=3, exclude=("jra55",),
+                    label_zones=("east_china_sea",)),   # JRA-55は1.25°と粗いので作らない
     "asia": dict(label="東アジア広域", kind="lcc", center=(115.0, 33.0), width_km=8600,
                  bbox=(55, 180, -8, 80), barb_n=24, coast="50m", zoom=1),
     # GSM 日本域 0.125°（Rjp, 3時間毎）。データ範囲は 120-150E, 20-50N。**GSM（ローカル専用）だけ**が持つ地域
     "japan3": dict(label="日本域（0.125°・3時間毎）", kind="lcc", center=(135.0, 36.0), width_km=2700,
                    bbox=(120, 150, 20, 50), barb_n=20, coast="10m", zoom=1, src="rjp", models=("gsm",)),
     "okinawa3": dict(label="南西域（0.125°・3時間毎）", kind="pc", center=(133.0, 30.0), width_deg=26.0,
-                     bbox=(120, 150, 20, 50), barb_n=16, coast="10m", zoom=1, src="rjp", models=("gsm",)),
+                     bbox=(120, 150, 20, 50), barb_n=16, coast="10m", zoom=1, src="rjp", models=("gsm",),
+                     label_zones=("east_china_sea",)),
 }
 
 
@@ -89,6 +98,7 @@ class View:
         self.sx, self.sy = slice(ix[0], ix[-1] + 1), slice(iy[0], iy[-1] + 1)
         self.lons, self.lats = F["lons"][self.sx], F["lats"][self.sy]
         self.z = r["zoom"]
+        self.zones = [LABEL_ZONES[n] for n in r.get("label_zones", ())]   # ラベル重点域（lon/lat の箱）
         self.barb_n = r["barb_n"]
         nx, ny = len(self.lons), len(self.lats)
         nfx, nfy = (nx - 1) * self.z + 1, (ny - 1) * self.z + 1
@@ -191,8 +201,9 @@ def ept(F, lv=850):
 
 # ---------------------------------------------------------------- 描画部品
 def lines(ax, V, a, levels, major=None, color="k", lw=0.8, lw_major=1.8, ls="-",
-          label_levels=None, fmt="%d", fs=8):
-    """細線＋太線(major)の等値線。label_levels の線にはラベルを付ける。"""
+          label_levels=None, fmt="%d", fs=8, zone_labels=False):
+    """細線＋太線(major)の等値線。label_levels の線にはラベルを付ける。
+    zone_labels=True なら、地域の label_zones（LABEL_ZONES）の中を通る線に必ずラベルを1つ付ける。"""
     lv = np.array(levels, dtype=float)
     z = V.fine(a)
     if lv.min() > np.nanmax(z) or lv.max() < np.nanmin(z):
@@ -212,6 +223,45 @@ def lines(ax, V, a, levels, major=None, color="k", lw=0.8, lw_major=1.8, ls="-",
                 ax.clabel(cs, levels=ll, fmt=fmt, fontsize=fs, inline=True, inline_spacing=2)
             except Exception:
                 pass
+            if zone_labels and V.zones:
+                _zone_labels(ax, V, cs, ll, fmt, fs, color)
+
+
+def _zone_labels(ax, V, cs, label_levels, fmt, fs, color):
+    """重点域の箱の中に、ラベルが1つも無い等値線へ手動でラベルを足す。
+    箱の中を通る最長の区間の中ほどに置く（自動配置で付いたラベルが箱内にあれば足さない）。"""
+    for (lo0, lo1, la0, la1) in V.zones:
+        # 箱の4隅を投影して外接矩形にする（投影座標での箱）
+        pts = ax.projection.transform_points(PC, np.array([lo0, lo1, lo1, lo0]), np.array([la0, la0, la1, la1]))
+        x0, x1, y0, y1 = pts[:, 0].min(), pts[:, 0].max(), pts[:, 1].min(), pts[:, 1].max()
+        have = [(round(float(c), 6), xy) for c, xy in zip(getattr(cs, "labelCValues", []), getattr(cs, "labelXYs", []))]
+        for lvl, segs in zip(cs.levels, cs.allsegs):
+            if not any(abs(lvl - x) < 1e-6 for x in label_levels):
+                continue
+            if any(abs(c - lvl) < 1e-6 and x0 <= xy[0] <= x1 and y0 <= xy[1] <= y1 for c, xy in have):
+                continue   # 箱の中に自動のラベルがある
+            best = None
+            for seg in segs:
+                inbox = (seg[:, 0] >= x0) & (seg[:, 0] <= x1) & (seg[:, 1] >= y0) & (seg[:, 1] <= y1)
+                run = []
+                for i, ok in enumerate(list(inbox) + [False]):   # 連続して箱の中にある区間に分ける
+                    if ok:
+                        run.append(i)
+                    elif run:
+                        if best is None or len(run) > best[0]:
+                            best = (len(run), run[len(run) // 2], seg)
+                        run = []
+            if best is None or best[0] < 8:
+                continue   # 短すぎる線は文字が入らない
+            # clabel の2回目の呼び出しは不安定なので、文字を自分で置く（線の向きに回転・白い背景で線を隠す）
+            seg, i = best[2], best[1]
+            j0, j1 = max(i - 2, 0), min(i + 2, len(seg) - 1)
+            d0, d1 = ax.transData.transform(seg[j0]), ax.transData.transform(seg[j1])
+            ang = float(np.degrees(np.arctan2(d1[1] - d0[1], d1[0] - d0[0])))
+            ang = (ang + 90) % 180 - 90   # 文字が逆さにならないよう -90〜90度に収める
+            ax.text(seg[i][0], seg[i][1], fmt % lvl, fontsize=fs, color=color,
+                    rotation=ang, rotation_mode="anchor", ha="center", va="center", zorder=5,
+                    bbox=dict(boxstyle="square,pad=0.1", fc="white", ec="none"))
 
 
 def hatch(ax, V, a, levels, hatches, color, zorder=2):
@@ -414,8 +464,8 @@ def chart_jet100(ax, V, F, ctx):
     legend_box(ax, [(c, None, None) for c in cols], [str(x) for x in lv] + [""])
 
 
-def _chart_tdep(ax, V, F, ctx, lv, tstep=3):
-    """850/925hPa: 気温・湿数・風。tstep: 気温の等値線の間隔[℃]"""
+def _chart_tdep(ax, V, F, ctx, lv, tstep=3, fs=8):
+    """850/925hPa: 気温・湿数・風。tstep: 気温の等値線の間隔[℃]、fs: 気温ラベルの文字サイズ"""
     d = F["p"][lv]
     V.set_level(F, lv)
     ttd = np.maximum(d["t"] - dewpoint(d["t"], d["r"]), 0.0)  # 飽和付近の-1e-6程度の負値を0に（等値線の穴を防ぐ）
@@ -426,7 +476,7 @@ def _chart_tdep(ax, V, F, ctx, lv, tstep=3):
                linestyles="--", zorder=3)
     tl = list(range(-60, 46, tstep))
     lines(ax, V, d["t"], tl, major=None, color="red", lw=1.1,
-          ls="--", label_levels=tl, fmt="%d", fs=8)
+          ls="--", label_levels=tl, fmt="%d", fs=fs, zone_labels=True)
     barbs(ax, V, d["u"], d["v"], "red")
     ctx["title"] = f"TTD{lv},T{lv},Wind{lv}"
     legend_box(ax, [("white", "\\\\\\\\\\\\", BL), ("white", "\\\\\\\\", BL),
@@ -435,11 +485,11 @@ def _chart_tdep(ax, V, F, ctx, lv, tstep=3):
 
 
 def chart_t850(ax, V, F, ctx):
-    _chart_tdep(ax, V, F, ctx, 850, tstep=2)
+    _chart_tdep(ax, V, F, ctx, 850, tstep=3, fs=12)
 
 
 def chart_t925(ax, V, F, ctx):
-    _chart_tdep(ax, V, F, ctx, 925, tstep=2)
+    _chart_tdep(ax, V, F, ctx, 925, tstep=2, fs=12)
 
 
 def chart_t975(ax, V, F, ctx):
@@ -465,7 +515,7 @@ def chart_t700(ax, V, F, ctx):
     fill(ax, V, ttd, TL, TC)
     hatch(ax, V, d["w"], [-1000, -70, -30, -10], ["OO", "oo", ".."], RD)
     lines(ax, V, d["t"], np.arange(-40, 30, 2), color="red", lw=1.1,
-          label_levels=list(range(-30, 30, 2)), fmt="%d", fs=8)
+          label_levels=list(range(-30, 30, 2)), fmt="%d", fs=8, zone_labels=True)
     barbs(ax, V, d["u"], d["v"], "red")
     ctx["title"] = "TTD700,OMG,T700,Wind700"
     legend_box(ax, [("white", "OO", RD), ("white", "oo", RD), ("white", "..", RD)],
