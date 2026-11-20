@@ -51,7 +51,13 @@
     const e = modelInits(model).find((i) => i.init === init);
     return ((((e || {}).regions || {})[region] || {})[chart]) || [];
   };
-  const regionsAvail = () => [...new Set(shownModels().flatMap((m) => Object.keys(regionMap(m))))];
+  // 地域の並びは「沖縄」を先頭にする（沖縄=okinawa、GSM日本域の南西域=okinawa3は沖縄の次）。残りは manifest の順
+  const REGION_FIRST = ["okinawa", "okinawa3"];
+  const regionsAvail = () => {
+    const all = [...new Set(shownModels().flatMap((m) => Object.keys(regionMap(m))))];
+    const rank = (r) => { const i = REGION_FIRST.indexOf(r); return i < 0 ? REGION_FIRST.length : i; };
+    return all.map((r, i) => [r, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map((x) => x[0]);
+  };
   // 図種の並びは 高層→地上。公開側の manifest は次の更新まで古い順のままなので、画面側にも順を持つ（nwp_charts.CHARTS と同じ順）。
   // 未知の図種は末尾（manifest の順）
   const CHART_ORDER = ["jet100", "jet200", "jet300", "t300", "z500", "t500", "t700", "ept850", "t850", "t925", "t975", "tenki", "surf"];
@@ -151,7 +157,14 @@
   }
 
   // ---------- URLハッシュ（リロード・共有で状態を保つ）
+  // モデル・地域・図種はブラウザにも覚えておき、URLに指定が無いとき（#なしで開いたとき）の既定にする
+  const LS_SEL = "nwp_sel";
+  function loadSel() { try { return JSON.parse(localStorage.getItem(LS_SEL)) || {}; } catch (e) { return {}; } }
+  function saveSel() {
+    try { localStorage.setItem(LS_SEL, JSON.stringify({ model: S.model, region: S.region, chart: S.chart })); } catch (e) { /* 保存できない環境は無視 */ }
+  }
   function saveHash() {
+    saveSel();
     history.replaceState(null, "", `#model=${S.model}&init=${S.init}&region=${S.region}&chart=${S.chart}&ft=${S.ft}` +
       (S.cmp ? `&cmp=1&model2=${S.model2}` : "") + (S.fig ? `&fig=1&region2=${S.region2}&chart2=${S.chart2}` : ""));
   }
@@ -177,7 +190,7 @@
     $("updated").textContent = "更新 " + updatedUtc(m.updated);
 
     S.local = await loadCustom();                     // ローカルサーバーなら自由選択の一覧が返る（公開サイトでは公開された図の一覧を読む）
-    const h = loadHash();
+    const h = Object.assign({}, loadSel(), loadHash());   // URLの指定を優先し、無い項目は前回の選択
     const models = modelKeys();
     S.model = models.includes(h.model) ? h.model : models[0];
     S.init = inits().some((i) => i.init === h.init) ? h.init : inits()[0].init;
