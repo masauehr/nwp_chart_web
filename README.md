@@ -266,7 +266,7 @@ kill $(lsof -ti :8790)                                                          
 `east_china_sea`（東シナ海）・`hokkaido`・`tohoku`・`kanto`・`chubu`・`kinki`・`chugoku_shikoku`・`kyushu`・`japan_sea`（日本海）・`pacific_south`（本州南岸の太平洋）・`pacific_east`（東日本の太平洋）。独自の箱はファイルの `label_zones` に足せる（東経・北緯の小→大の順）。重点域は無くても動く（省略可）。
 
 ### 設定例（`regions.okinawa` の中身を差し替える）
-どれも表示範囲を確認済み（九州は実際に作図して確認。他は設定の検証のみ）。
+日本列島に沿った9地域（陸の7地方＋日本海・本州南岸の太平洋）。どれも設定の検証と表示範囲が `bbox` に収まることを確認済み（実際に作図して画像を確認したのは九州のみ）。
 
 | 地域 | `label` | `center` | `width_deg` | `bbox` | `label_zones` |
 |---|---|---|---|---|---|
@@ -275,6 +275,10 @@ kill $(lsof -ti :8790)                                                          
 | 関東周辺 | 関東周辺 | [139.5, 36] | 10 | [128, 152, 29, 43] | kanto, chubu, tohoku, pacific_south, pacific_east |
 | 東北周辺 | 東北周辺 | [141, 39.5] | 12 | [128, 154, 30, 48] | tohoku, kanto, hokkaido, japan_sea, pacific_east |
 | 北海道周辺 | 北海道周辺 | [143, 43.5] | 14 | [130, 156, 34, 52] | hokkaido, tohoku, japan_sea, pacific_east |
+| 中部周辺 | 中部周辺 | [137.5, 36] | 10 | [126, 150, 28, 44] | chubu, kanto, kinki, japan_sea, pacific_south |
+| 中国・四国周辺 | 中国・四国周辺 | [133, 34] | 12 | [121, 145, 25, 42] | chugoku_shikoku, kyushu, kinki, japan_sea, pacific_south |
+| 日本海周辺 | 日本海周辺 | [135, 39] | 16 | [120, 150, 28, 50] | japan_sea, tohoku, hokkaido, chubu, chugoku_shikoku |
+| 本州南岸の太平洋 | 本州南岸の太平洋 | [139, 31.5] | 16 | [124, 152, 20, 42] | pacific_south, kanto, kinki, chubu, kyushu |
 
 例（関東周辺）:
 ```json
