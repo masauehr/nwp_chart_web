@@ -36,3 +36,9 @@ def test_zone_label_added_when_missing():
     nwp_charts.lines(ax, V, a, [14, 15, 16], color="red", label_levels=[15], zone_labels=True)
     assert len(ax.texts) > n0
     plt.close(fig)
+
+
+def test_japan_regions_use_japan_zones():
+    """日本周辺・日本域は全国の重点域（JAPAN_ZONES）を使う。"""
+    for name in ("japan", "japan3"):
+        assert nwp_charts.REGIONS[name]["label_zones"] == nwp_charts.JAPAN_ZONES

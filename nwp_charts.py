@@ -42,12 +42,27 @@ MAP_ASPECT = (0.996 * 9.5) / (716 / 100)  # 地図部分の縦横比（幅/高�
 # 他の地域にも使えるよう名前で定義する（足すときはここへ1行、地域側に名前を書くだけ）。
 LABEL_ZONES = {
     "east_china_sea": (121.0, 131.0, 25.0, 33.0),   # 東シナ海
+    # 日本全国（日本列島に沿って隙間なく並べる。隣と少し重なってよい＝箱内に自動ラベルがあれば足さない）
+    "hokkaido": (139.5, 146.0, 41.5, 45.5),         # 北海道
+    "tohoku": (139.0, 143.0, 37.0, 41.5),           # 東北
+    "kanto": (138.5, 141.5, 34.5, 37.5),            # 関東
+    "chubu": (136.0, 139.0, 34.5, 37.5),            # 中部
+    "kinki": (134.0, 137.0, 33.5, 36.0),            # 近畿
+    "chugoku_shikoku": (131.0, 134.5, 32.5, 35.5),  # 中国・四国
+    "kyushu": (129.5, 132.0, 31.0, 34.0),           # 九州
+    "japan_sea": (130.0, 139.0, 36.0, 42.0),        # 日本海
+    "pacific_south": (133.0, 143.0, 29.0, 34.5),    # 本州南岸の太平洋
+    "pacific_east": (141.0, 148.0, 35.0, 42.0),     # 東日本の太平洋
 }
+# 日本全国の重点域（日本周辺・日本域の地図に使う）
+JAPAN_ZONES = ("hokkaido", "tohoku", "kanto", "chubu", "kinki", "chugoku_shikoku",
+               "kyushu", "japan_sea", "pacific_south", "pacific_east", "east_china_sea")
 
 # center: 投影中心(lon,lat)  width_km: 地図幅  bbox: データ切り出し範囲(lon0,lon1,lat0,lat1)
 REGIONS = {
     "japan": dict(label="日本周辺", kind="lcc", center=(133.0, 36.0), width_km=4400,
-                  bbox=(95, 180, 5, 68), barb_n=20, coast="10m", zoom=2),
+                  bbox=(95, 180, 5, 68), barb_n=20, coast="10m", zoom=2,
+                  label_zones=JAPAN_ZONES),
     "okinawa": dict(label="沖縄周辺", kind="pc", center=(128.0, 27.0), width_deg=24.0,
                     bbox=(105, 152, 8, 46), barb_n=16, coast="10m", zoom=3, exclude=("jra55",),
                     label_zones=("east_china_sea",)),   # JRA-55は1.25°と粗いので作らない
@@ -55,7 +70,8 @@ REGIONS = {
                  bbox=(55, 180, -8, 80), barb_n=24, coast="50m", zoom=1),
     # GSM 日本域 0.125°（Rjp, 3時間毎）。データ範囲は 120-150E, 20-50N。**GSM（ローカル専用）だけ**が持つ地域
     "japan3": dict(label="日本域（0.125°・3時間毎）", kind="lcc", center=(135.0, 36.0), width_km=2700,
-                   bbox=(120, 150, 20, 50), barb_n=20, coast="10m", zoom=1, src="rjp", models=("gsm",)),
+                   bbox=(120, 150, 20, 50), barb_n=20, coast="10m", zoom=1, src="rjp", models=("gsm",),
+                   label_zones=JAPAN_ZONES),
     "okinawa3": dict(label="南西域（0.125°・3時間毎）", kind="pc", center=(133.0, 30.0), width_deg=26.0,
                      bbox=(120, 150, 20, 50), barb_n=16, coast="10m", zoom=1, src="rjp", models=("gsm",),
                      label_zones=("east_china_sea",)),
