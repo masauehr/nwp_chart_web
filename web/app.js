@@ -51,13 +51,7 @@
     const e = modelInits(model).find((i) => i.init === init);
     return ((((e || {}).regions || {})[region] || {})[chart]) || [];
   };
-  // 地域の並びは「沖縄」を先頭にする（沖縄=okinawa、GSM日本域の南西域=okinawa3は沖縄の次）。残りは manifest の順
-  const REGION_FIRST = ["okinawa", "okinawa3"];
-  const regionsAvail = () => {
-    const all = [...new Set(shownModels().flatMap((m) => Object.keys(regionMap(m))))];
-    const rank = (r) => { const i = REGION_FIRST.indexOf(r); return i < 0 ? REGION_FIRST.length : i; };
-    return all.map((r, i) => [r, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map((x) => x[0]);
-  };
+  const regionsAvail = () => [...new Set(shownModels().flatMap((m) => Object.keys(regionMap(m))))];   // 並びは manifest の順＝広い順（東アジア広域→日本周辺→日本域→沖縄周辺→南西域）
   // 図種の並びは 高層→地上。公開側の manifest は次の更新まで古い順のままなので、画面側にも順を持つ（nwp_charts.CHARTS と同じ順）。
   // 未知の図種は末尾（manifest の順）
   const CHART_ORDER = ["jet100", "jet200", "jet300", "t300", "z500", "t500", "t700", "ept850", "t850", "t925", "t975", "tenki", "surf"];
