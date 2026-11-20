@@ -1,0 +1,15 @@
+{
+  "_説明": "このファイルを region_config.json という名前でコピーして使う。「沖縄周辺」(okinawa) を九州周辺に入れ替える例。キー名（okinawa）は変えない。",
+  "label_zones": {
+    "kyushu_area": [128.0, 134.0, 30.0, 35.0]
+  },
+  "regions": {
+    "okinawa": {
+      "label": "九州周辺",
+      "center": [131.0, 33.0],
+      "width_deg": 14.0,
+      "bbox": [115, 148, 20, 46],
+      "label_zones": ["kyushu_area"]
+    }
+  }
+}

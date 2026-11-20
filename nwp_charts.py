@@ -78,6 +78,94 @@ REGIONS = {
 }
 
 
+# ---------------------------------------------------------------- 地域の設定ファイル（任意）
+# 「沖縄周辺」など既存の地域の範囲・名前を、設定ファイルで別の地域（九州・関東など）に入れ替えられる。
+# 置き場所: 環境変数 NWP_REGION_CONFIG、無ければこのフォルダの region_config.json（git除外・無ければ何もしない）。
+# 地域を増やすことはしない（公開サイトの容量のため）。キー（okinawa 等）は画像の置き場なので変えず、中身だけ入れ替える。
+# 書式は region_config.example.json と README を参照。
+REGION_CONFIG_KEYS = {"label", "kind", "center", "width_deg", "width_km", "bbox", "barb_n", "coast", "zoom", "label_zones"}
+RJP_RANGE = (120.0, 150.0, 20.0, 50.0)   # GSM 日本域(Rjp)のデータ範囲 lon0,lon1,lat0,lat1
+
+
+def _num4(v, name):
+    if not (isinstance(v, (list, tuple)) and len(v) == 4 and all(isinstance(x, (int, float)) for x in v)):
+        raise ValueError(f"{name} は数値4つ [東端西端..] の並びで指定してください")
+    return tuple(float(x) for x in v)
+
+
+def apply_region_config(cfg, regions=None, zones=None):
+    """設定（dict）を地域定義へ反映する。不正なら ValueError（何も変更しない）。"""
+    regions = REGIONS if regions is None else regions
+    zones = LABEL_ZONES if zones is None else zones
+    new_zones = {}
+    for name, box_ in (cfg.get("label_zones") or {}).items():
+        lon0, lon1, lat0, lat1 = _num4(box_, f"label_zones.{name}")
+        if not (lon0 < lon1 and lat0 < lat1):
+            raise ValueError(f"label_zones.{name} は (東経の小,大, 北緯の小,大) の順で指定してください")
+        new_zones[name] = (lon0, lon1, lat0, lat1)
+    known = {**zones, **new_zones}
+    new_regions = {}
+    for key, over in (cfg.get("regions") or {}).items():
+        if key not in regions:
+            raise ValueError(f"地域 {key} は存在しません（入れ替えられるのは {' '.join(regions)}。地域は増やせません）")
+        bad = set(over) - REGION_CONFIG_KEYS
+        if bad:
+            raise ValueError(f"regions.{key} に使えない項目があります: {' '.join(sorted(bad))}")
+        r = dict(regions[key])
+        r.update(over)
+        for k in ("center",):
+            if k in over:
+                c = over[k]
+                if not (isinstance(c, (list, tuple)) and len(c) == 2 and all(isinstance(x, (int, float)) for x in c)):
+                    raise ValueError(f"regions.{key}.center は [経度, 緯度] で指定してください")
+                r[k] = tuple(float(x) for x in c)
+        if "bbox" in over:
+            r["bbox"] = _num4(over["bbox"], f"regions.{key}.bbox")
+        if r["kind"] not in ("pc", "lcc"):
+            raise ValueError(f"regions.{key}.kind は pc か lcc です")
+        need = "width_deg" if r["kind"] == "pc" else "width_km"
+        if not isinstance(r.get(need), (int, float)) or r[need] <= 0:
+            raise ValueError(f"regions.{key}.{need} は正の数で指定してください")
+        lon0, lon1, lat0, lat1 = r["bbox"]
+        if not (lon0 < lon1 and lat0 < lat1):
+            raise ValueError(f"regions.{key}.bbox は (東経の小,大, 北緯の小,大) の順で指定してください")
+        import nwp_data
+        d = nwp_data.CROP
+        lim = RJP_RANGE if r.get("src") == "rjp" else (d["lon0"], d["lon1"], d["lat0"], d["lat1"])
+        if lon0 < lim[0] or lon1 > lim[1] or lat0 < lim[2] or lat1 > lim[3]:
+            raise ValueError(f"regions.{key}.bbox がデータ範囲（東経{lim[0]}〜{lim[1]}度・北緯{lim[2]}〜{lim[3]}度）の外です")
+        if not isinstance(r.get("barb_n"), int) or r["barb_n"] < 4:
+            raise ValueError(f"regions.{key}.barb_n は4以上の整数です")
+        lz = tuple(r.get("label_zones", ()))
+        for z in lz:
+            if z not in known:
+                raise ValueError(f"regions.{key}.label_zones の {z} は定義がありません")
+        r["label_zones"] = lz
+        new_regions[key] = r
+    zones.update(new_zones)
+    regions.update(new_regions)
+    return sorted(new_regions)
+
+
+def load_region_config(path=None):
+    """設定ファイルがあれば読んで反映する。壊れていたら警告を出して無視する（アプリは止めない）。"""
+    import json
+    from pathlib import Path
+    p = Path(path or os.environ.get("NWP_REGION_CONFIG") or Path(__file__).with_name("region_config.json"))
+    if not p.exists():
+        return []
+    try:
+        done = apply_region_config(json.loads(p.read_text(encoding="utf-8")))
+    except (ValueError, OSError) as e:
+        print(f"[警告] 地域の設定ファイル {p} を無視します: {e}", file=sys.stderr)
+        return []
+    print(f"地域の設定ファイル {p.name} を反映: {' '.join(done)}", file=sys.stderr)
+    return done
+
+
+load_region_config()
+
+
 def regions_for(model):
     """そのモデルで作れる地域（地域の models 指定があればそのモデルだけ。無ければ全モデル共通）。"""
     return [k for k, v in REGIONS.items()

@@ -12,7 +12,7 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 ## 規約
 - コメント・UIは日本語。インデント: Python 4、JS/HTML/CSS 2。f-string内で同じ種類の引用符を入れ子にしない（Python 3.10）。
 - **gsm_chart_web と共通部品化しない**（`nwp_charts.py` は `gsm_charts.py` のコピーを調整したもの）。
-- 図種は `nwp_charts.py` の `CHARTS`、地域は `REGIONS`。モデルは `nwp_data.py` の `MODELS`。追加したら README・マニュアル・pc_docs も更新。
+- 図種は `nwp_charts.py` の `CHARTS`、地域は `REGIONS`（**地域は増やさない**＝公開サイトの容量。入れ替えは設定ファイル `region_config.json`、`apply_region_config`。通常版は `okinawa`/`okinawa3` を地域ボタンの先頭に並べる＝`web/app.js` の `REGION_FIRST`）。モデルは `nwp_data.py` の `MODELS`。追加したら README・マニュアル・pc_docs も更新。
 - `data/`（取得GRIB2の一時置き場）、`output/`、`_site/` はgit除外。
 
 ## 断面図・エマグラム作成（旧称「自由選択」）と公開掲載（tenkizu_web から移植）
