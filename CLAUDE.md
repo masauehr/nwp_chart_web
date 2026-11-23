@@ -73,7 +73,7 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - 取得は **索引(.index/.idx)のバイト範囲だけ**。全体（ECMWF約100MB・GFS約540MB/ステップ）を取らない。
 - 最新の初期値は「FT72hまで揃っているもの」だけ採る（公開途中を避ける）。ECMWF 06/18UTC は90hまで。
 - ECMWFの降水は積算[m]なので前ステップとの差分、GFSは窓付き積算（APCP）で最短窓を採る。
-- 975hPa は GFS のみ（ECMWF/AIFSオープンデータに無い）。
+- 950hPa（`flux950`＝水蒸気フラックス・収束・風。気温図は作らない・2026-11-24）は GFS・GSM日本域・JRA-55 のみ（ECMWF/AIFSオープンデータ・GSM全球に無い）。自動更新の取得面 `PLEVELS` は 975→950（断面図用 `CUSTOM_PLEVELS` は 975 のまま）。
 - **AIFS**: 相対湿度 `r` が無く比湿 `q` から計算（`_rh_from_q`）。降水 `tp` の単位は kg/m²（IFSは m）→ `TP_TO_MM`。6時間刻みのみ。図種の `levels` で無い面は自動スキップ。
 - 湿数 `T−Td` は飽和付近で `-1e-6` 程度の負値になり、`contourf` のハッチが全面塗り/逆転する。`_chart_tdep` で `np.maximum(…, 0)` して levels を `[-0.1, 1.5, 3]` にしている（外さない）。
 - **cartopy 0.26 の `contourf(transform=PC)` は帯の領域が地図全面に広がる**（CIは依存が最新版で0.26、手元met_env_310は0.25のため手元では再現しない）。等値線・ハッチ・塗りは `ax.contour(*V.xy(ax), …)` で自前投影した座標で描く（`transform=PC` を付けない）。外さない。CIと同じ環境の再現は `uv venv --python 3.11` ＋ `uv pip install -r requirements.txt`。

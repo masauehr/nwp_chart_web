@@ -34,7 +34,7 @@ def test_points_must_be_inside_the_data_range():
 
 def test_custom_uses_13_levels_but_the_regular_pipeline_keeps_7():
     assert len(nwp_data.CUSTOM_PLEVELS) == 13 and 100 in nwp_data.CUSTOM_PLEVELS and 1000 in nwp_data.CUSTOM_PLEVELS
-    assert nwp_data.PLEVELS == (975, 925, 850, 700, 500, 300, 200)                 # 自動更新の取得量は増やさない
+    assert nwp_data.PLEVELS == (950, 925, 850, 700, 500, 300, 200)                 # 自動更新の取得量は増やさない
 
 
 def test_plevels_argument_selects_levels():

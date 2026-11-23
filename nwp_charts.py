@@ -3,7 +3,7 @@
 """ECMWF / GFS（0.25°）のGRIB2から気象庁ビューア風の天気図PNGを描画する。
 
 gsm_chart_web の gsm_charts.py をコピーして多モデル用に調整したもの（共通部品化しない方針）。
-図種: surf / tenki / z500 / jet300 / t500 / t850 / t700 / t925 / t975 / ept850（975hPaはGFSのみ）
+図種: surf / tenki / z500 / jet300 / t500 / t850 / t700 / t925 / flux950 / ept850（flux950はGFS・GSM日本域・JRA-55のみ）
 地域: japan（日本周辺・ランベルト） / okinawa（沖縄周辺・正距円筒） / asia（東アジア広域）
   GSMだけ japan3 / okinawa3（日本域0.125°・3時間毎。src="rjp"）
 """
@@ -596,8 +596,45 @@ def chart_t925(ax, V, F, ctx):
     _chart_tdep(ax, V, F, ctx, 925, tstep=2, fs=12)
 
 
-def chart_t975(ax, V, F, ctx):
-    _chart_tdep(ax, V, F, ctx, 975)
+def mixing_q(t_c, rh, p_hpa):
+    """比湿 [g/kg]（相対湿度[%]・気温[℃]・気圧[hPa]から。Bolton式の飽和水蒸気圧）"""
+    es = 6.112 * np.exp(17.67 * t_c / (t_c + 243.5))
+    e = np.clip(rh, 0.0, 100.0) / 100.0 * es
+    return 1000.0 * 0.622 * e / (p_hpa - 0.378 * e)
+
+
+def divergence(u, v, lats, lons):
+    """発散 [1/s]（球面格子の中心差分）。vorticity と同じ座標の扱い"""
+    R = 6.371e6
+    la = np.deg2rad(lats)[:, None]
+    dlam = np.deg2rad(lons[1] - lons[0])
+    dphi = np.deg2rad(lats[1] - lats[0])
+    cosp = np.cos(la)
+    dudx = np.gradient(u, axis=1) / (R * cosp * dlam)
+    dvcos = np.gradient(v * cosp, axis=0) / (R * cosp * dphi)
+    return dudx + dvcos
+
+
+def chart_flux950(ax, V, F, ctx):
+    """950hPa 水蒸気フラックス（q×風速の塗り）・フラックス収束（緑のハッチと等値線）・風矢羽"""
+    d = F["p"][950]
+    V.set_level(F, 950)
+    q = mixing_q(d["t"], d["r"], 950.0)
+    qu, qv = q * d["u"], q * d["v"]                      # 成分 [g/kg・m/s]
+    mag = np.hypot(qu, qv)
+    conv = -divergence(qu, qv, F["lats"], F["lons"]) * 1e3   # 収束 [1e-3 g/kg/s]（正=収束）
+    GR = "#1c7a3c"
+    FC = ["white", "#e0f0ff", "#b5dcff", "#82c0f5", "#4f9de8", "#2f6fcf", "#9b30d9"]
+    FL = [0, 40, 60, 80, 100, 150, 200, 5000]
+    fill(ax, V, mag, FL, FC)
+    cv = V.fine(conv)
+    ax.contour(*V.xy(ax), cv, levels=[0.5, 1, 2, 3, 4, 6], colors=GR, linewidths=0.8, zorder=3)
+    with matplotlib.rc_context({"hatch.color": GR, "hatch.linewidth": 0.9}):
+        ax.contourf(*V.xy(ax), cv, levels=[0.5, 1e4], colors="none", hatches=["////"], zorder=2)
+    barbs(ax, V, d["u"], d["v"], "black")
+    ctx["title"] = "QFlux950,Conv,Wind950"
+    legend_box(ax, [("white", "////", GR)], ["", "0.5"], rect=(0.40, 0.008, 0.15, 0.078))   # 収束[1e-3 g/kg/s]
+    legend_box(ax, [(c, None, None) for c in FC[1:]], ["40", "60", "80", "100", "150", "200", ""])
 
 
 def chart_t500(ax, V, F, ctx):
@@ -658,7 +695,7 @@ CHARTS = {
     "ept850": dict(label="850hPa（EPT・SSI・風）", fn=chart_ept850),
     "t850": dict(label="850hPa（気温・湿数・風）", fn=chart_t850),
     "t925": dict(label="925hPa（気温・湿数・風）", fn=chart_t925),
-    "t975": dict(label="975hPa（気温・湿数・風）", fn=chart_t975, levels=[975]),
+    "flux950": dict(label="950hPa（水蒸気フラックス・収束・風）", fn=chart_flux950, levels=[950]),
     "tenki": dict(label="地上（天気・気圧・SSI）", fn=chart_tenki, cloud=True),   # cloud: 雲量が要る（JRA-55には無いので作らない）
     "surf": dict(label="地上（気圧・風・降水）", fn=chart_surf),
 }

@@ -118,7 +118,7 @@ def _render_ft(args):
             if nwp_charts.CHARTS[chart].get("cloud") and F.get("no_cloud"):
                 continue  # 雲量が無いデータ（JRA-55）では天気図は作らない
             if any(lv not in F["p"] for lv in nwp_charts.CHARTS[chart].get("levels", [])):
-                continue  # このモデルに無い気圧面（ECMWF/AIFS/GSM全球の975hPa）はスキップ
+                continue  # このモデルに無い気圧面（ECMWF/AIFS/GSM全球の950hPa）はスキップ
             try:
                 nwp_charts.render_chart(chart, region, F, init, ft, out / f"{chart}_{ft:03d}.png",
                                         model=nwp_data.MODELS[model]["label"])

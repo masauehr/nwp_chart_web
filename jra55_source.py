@@ -29,7 +29,7 @@ from pathlib import Path
 
 BASE_URL = "https://database.rish.kyoto-u.ac.jp/arch/jra55/data/isobaric_1.25d"
 DATA = Path(__file__).resolve().parent / "data" / "jra55"    # 時刻ごとのキャッシュ（テストでは差し替える）
-LEVELS = (975, 925, 850, 700, 500, 300, 200, 100)             # 取り込む等圧面[hPa]（RHは100〜1000hPaのみ）
+LEVELS = (950, 925, 850, 700, 500, 300, 200, 100)             # 取り込む等圧面[hPa]（RHは100〜1000hPaのみ）
 ISO_VARS = {"HGT": "gh", "TMP": "t", "UGRD": "u", "VGRD": "v", "RH": "r", "VVEL": "w"}   # 等圧面（VVELは無くても可）
 REQUIRED_ISO = ("gh", "t", "u", "v", "r")
 SURF_VARS = {"PRES": ("sfc", "sp"), "PRMSL": ("msl", "msl"), "TMP": ("fhg", "t2"),
@@ -192,7 +192,7 @@ def load(valid_s, data_dir=None):
     """キャッシュ(npz)から、nwp_charts が使う形式の辞書を作る。無ければ None。
 
     返り値: {"lats"(昇順),"lons"(0〜358.75),"msl"(hPa),"sp"(hPa),"u10","v10","t2"(℃),"tcc"(None),"rr"(None),"rr_h"(6),
-             "no_cloud"(True),"p": {975..100: {"gh"(m),"t"(℃),"u","v","r"(%),"w"(hPa/h)}}}
+             "no_cloud"(True),"p": {950..100: {"gh"(m),"t"(℃),"u","v","r"(%),"w"(hPa/h)}}}
     """
     import numpy as np
     p = cache_path(valid_s, data_dir)
