@@ -789,6 +789,9 @@ def render_chart(chart, region, F, init, ft, outpath, model="", quantize=True):
 
     _caption(fig, [(f"{init:%d%H}", "#1010e0", 17), (f"<{ft}>", "#d020d0", 17),
                    (ctx["title"], "#7a5a30", 17)], y=21 / 760)
+    # 画像だけが共有されても分かるよう、下の帯の右端に注意書きを入れる（公式予報ではない）
+    fig.text(0.995, 21 / 760, "公式予報ではありません", color="#555555", fontsize=10,
+             family=["Hiragino Sans", "Arial Unicode MS", "DejaVu Sans"], va="center", ha="right")
     fig.savefig(outpath, dpi=DPI)
     plt.close(fig)
     if quantize:
