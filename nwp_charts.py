@@ -69,7 +69,7 @@ REGIONS = {
     "asia": dict(label="東アジア広域", kind="lcc", center=(115.0, 33.0), width_km=8600,
                  bbox=(55, 180, -8, 80), barb_n=24, coast="50m", zoom=1),
     # GSM 日本域 0.125°（Rjp, 3時間毎）。データ範囲は 120-150E, 20-50N。**GSM（ローカル専用）だけ**が持つ地域
-    "japan3": dict(label="日本域（0.125°・3時間毎）", kind="lcc", center=(135.0, 36.0), width_km=2700,
+    "japan3": dict(label="日本域（0.125°・3時間毎）", kind="lcc", center=(134.0, 34.0), width_km=3100,
                    bbox=(120, 150, 20, 50), barb_n=20, coast="10m", zoom=1, src="rjp", models=("gsm",),
                    label_zones=JAPAN_ZONES),
     "okinawa3": dict(label="南西域（0.125°・3時間毎）", kind="pc", center=(133.0, 30.0), width_deg=26.0,
@@ -422,9 +422,10 @@ def extrema(ax, V, a, kind, win, color="k", fs=11, dec=0):
                 fontsize=fs - 3, color=color, zorder=8)
 
 
-def legend_box(ax, boxes, labels, center=False, rect=(0.724, 0.008, 0.272, 0.078)):
+def legend_box(ax, boxes, labels, center=False, rect=(0.724, 0.008, 0.272, 0.078), pad=0.04):
     """右下の凡例。boxes=[(facecolor, hatch, hatchcolor)...]、labels は境界値の文字列（len(boxes)+1）。
-    rect: 凡例の位置 [x, y, 幅, 高さ]（軸座標）。2つ並べるときは左側の凡例をずらす。"""
+    rect: 凡例の位置 [x, y, 幅, 高さ]（軸座標）。2つ並べるときは左側の凡例をずらす。
+    pad: 四角の左右の余白（境界値の文字が枠から出ないよう、両端の文字を載せる幅）。"""
     ia = ax.inset_axes(list(rect), transform=ax.transAxes, zorder=20)
     ia.set_xlim(0, 1)
     ia.set_ylim(0, 1)
@@ -434,7 +435,7 @@ def legend_box(ax, boxes, labels, center=False, rect=(0.724, 0.008, 0.272, 0.078
         s.set_linewidth(1.0)
     ia.set_facecolor("white")
     n = len(boxes)
-    x0, x1 = 0.04, 0.96
+    x0, x1 = pad, 1.0 - pad
     w = (x1 - x0) / n
     for k, (fc, ht, hc) in enumerate(boxes):
         # ハッチ色は edgecolor で決まるため、ハッチ用と枠線用の2枚を重ねる
@@ -616,25 +617,31 @@ def divergence(u, v, lats, lons):
 
 
 def chart_flux950(ax, V, F, ctx):
-    """950hPa 水蒸気フラックス（q×風速の塗り）・フラックス収束（緑のハッチと等値線）・風矢羽"""
+    """950hPa 水蒸気フラックス（ρq×風の大きさ [g/m²/s] の塗り。気象庁メソ客観解析の図と同じ単位・尺度）、
+    フラックス収束（緑の等値線とハッチ）、風矢羽。塗りの区切りは季節に関わらず固定（日々の比較のため）"""
     d = F["p"][950]
     V.set_level(F, 950)
-    q = mixing_q(d["t"], d["r"], 950.0)
-    qu, qv = q * d["u"], q * d["v"]                      # 成分 [g/kg・m/s]
+    q = mixing_q(d["t"], d["r"], 950.0)                          # 比湿 [g/kg]
+    tv = (d["t"] + 273.15) * (1.0 + 0.61 * q / 1000.0)            # 仮温度 [K]
+    rho = 95000.0 / (287.05 * tv)                                  # 空気密度 [kg/m³]
+    qu, qv = rho * q * d["u"], rho * q * d["v"]                    # 質量フラックス成分 [g/m²/s]
     mag = np.hypot(qu, qv)
-    conv = -divergence(qu, qv, F["lats"], F["lons"]) * 1e3   # 収束 [1e-3 g/kg/s]（正=収束）
+    conv = -divergence(qu, qv, F["lats"], F["lons"]) * 1e3         # 収束 [1e-3 g/m³/s]（正=収束）
     GR = "#1c7a3c"
-    FC = ["white", "#e0f0ff", "#b5dcff", "#82c0f5", "#4f9de8", "#2f6fcf", "#9b30d9"]
-    FL = [0, 40, 60, 80, 100, 150, 200, 5000]
+    # 100〜200 は弱い場の確認用に淡く塗り、200以上は気象庁の図と同じ配色（200〜500・50刻み・500超は赤）
+    FL = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 5000]
+    FC = ["white", "#e8f4ff", "#d0ecff", "#b5f0ff", "#7df0ff", "#6cff4a", "#ffff4a", "#f5b942", "#f08030", "#e83020", "#e83020"]
     fill(ax, V, mag, FL, FC)
     cv = V.fine(conv)
     ax.contour(*V.xy(ax), cv, levels=[0.5, 1, 2, 3, 4, 6], colors=GR, linewidths=0.8, zorder=3)
     with matplotlib.rc_context({"hatch.color": GR, "hatch.linewidth": 0.9}):
         ax.contourf(*V.xy(ax), cv, levels=[0.5, 1e4], colors="none", hatches=["////"], zorder=2)
     barbs(ax, V, d["u"], d["v"], "black")
-    ctx["title"] = "QFlux950,Conv,Wind950"
-    legend_box(ax, [("white", "////", GR)], ["", "0.5"], rect=(0.40, 0.008, 0.15, 0.078))   # 収束[1e-3 g/kg/s]
-    legend_box(ax, [(c, None, None) for c in FC[1:]], ["40", "60", "80", "100", "150", "200", ""])
+    ctx["title"] = "QFlux950[g/m2/s],Conv[1e-3g/m3/s],Wind950"
+    legend_box(ax, [("white", "////", GR)], ["", "0.5"], rect=(0.60, 0.008, 0.08, 0.078),
+               pad=0.18)                                   # 収束の凡例
+    legend_box(ax, [(c, None, None) for c in FC[1:]], [str(x) for x in FL[1:-1]] + [""],
+               rect=(0.69, 0.008, 0.30, 0.078), pad=0.09)  # 塗りの凡例
 
 
 def chart_t500(ax, V, F, ctx):
