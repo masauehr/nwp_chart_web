@@ -100,20 +100,20 @@ cd ~/projects/nwp_chart_web
 
 | ラベル | 内容 | 間隔 |
 |---|---|---|
-| `com.masahiro.nwp_chart_web_gsm` | GSM（00/12UTC）の自動取得・作図（3日より古い分は削除。手動取得分は除く） | 1時間おき |
+| `com.masahiro.nwp_chart_web_gsm` | GSM（00/12/18UTC）の自動取得・作図（3日より古い分は削除。手動取得分は除く） | 1時間おき |
 | `com.masahiro.nwp_chart_web_sync` | 公開側で作られた画像を手元へ取り込む（`sync_public.py`） | 30分おき |
 | `com.masahiro.nwp_chart_web_availability` | 配信時刻の実測を記録（`check_availability.py`。cron時刻の根拠） | 10分おき |
 | `com.masahiro.nwp_chart_web_token_notify` | cron-job.org 用トークンの期限をSlack DMで通知（2027-02-08 の14日前から。`CRON_JOB_ORG.md`） | 毎日9:05 |
 
-### GSM の自動取得（00/12UTC のみ・ローカル）
-GSM は **00UTC と 12UTC の初期値だけ**を、launchd で自動取得・作図します（06/18UTC は手動）。ECMWF・GFS・AIFS は公開サイト側（GitHub Actions）が更新するので、この自動取得の対象は GSM だけです。
+### GSM の自動取得（00/12/18UTC・ローカル）
+GSM は **00・12・18UTC の初期値**を、launchd で自動取得・作図します（06UTC は手動。18UTC は 2026-11-24 に追加）。ECMWF・GFS・AIFS は公開サイト側（GitHub Actions）が更新するので、この自動取得の対象は GSM だけです。
 
 - 設定: [launchd/com.masahiro.nwp_chart_web_gsm.plist](launchd/com.masahiro.nwp_chart_web_gsm.plist)（`~/Library/LaunchAgents/` に置いて登録）。1時間おきに確認し、揃っていれば取得・作図、作成済みなら数秒で終わります。
-- 実行内容: `update_latest.py --models gsm --init-hours 0 12 --keep-days 3 --jobs 4 --dl-jobs 6`
-- **所要時間（実測）**: 初期値1つで約14分（13分42秒）。取得 約590MB（FT72h まで）、PNG 851枚（約130MB）。1日2回で約27分。
-- **保管**: 初期値が **3日より古い PNG と GRIB2 を自動で削除**します（`--keep-days 3`）。3日分（約6初期値）で約4.3GB。削除対象は `--dry-run` を付けると確認できます。
+- 実行内容: `update_latest.py --models gsm --init-hours 0 12 18 --keep-days 3 --jobs 4 --dl-jobs 6`
+- **所要時間（実測）**: 初期値1つで約14分（13分42秒）。取得 約590MB（FT72h まで）、PNG 851枚（約130MB）。1日3回で約41分。
+- **保管**: 初期値が **3日より古い PNG と GRIB2 を自動で削除**します（`--keep-days 3`）。3日分（9初期値）で約6.5GB。削除対象は `--dry-run` を付けると確認できます。
 - ログ: `logs/gsm_auto.log`
-- 手動で 06/18UTC を取る: `python make_charts.py gsm 2026110406`（YYYYMMDDHH、UTC）。
+- 手動で 06UTC を取る: `python make_charts.py gsm 2026110406`（YYYYMMDDHH、UTC）。
 - 登録・停止:
   ```bash
   cp launchd/com.masahiro.nwp_chart_web_gsm.plist ~/Library/LaunchAgents/
@@ -136,7 +136,7 @@ GSM は **00UTC と 12UTC の初期値だけ**を、launchd で自動取得・�
 | **ECMWF** | **00 / 12 / 18**（1日3回） | 公開サイト（GitHub Actions） | 配信は 00/06/12/18 の4回だが、**06Z は取らない**。**18Z も取る**のが GFS・AIFS との違い。00/12Z は144時間先まで配信されるが72時間までを作り、**18Z は90時間先までしか配信されない**（72時間までは作れる） |
 | **GFS** | **00 / 12**（1日2回） | 同上 | 06/18Z は取らない（公開容量1GBの都合） |
 | **AIFS** | **00 / 12**（1日2回） | 同上 | 配信は6時間刻みで4回/日だが、公開は 00/12Z のみ（容量の都合） |
-| GSM（ローカル専用） | 00 / 12 | Mac の launchd（1時間おき） | 06/18Z は手動（`--init-hours 0 6 12 18`）。過去分は「過去分取得」ボタン |
+| GSM（ローカル専用） | 00 / 12 / **18** | Mac の launchd（1時間おき） | 06Z は手動（`--init-hours 0 6 12 18`）。過去分は「過去分取得」ボタン |
 | JRA-55（ローカル専用） | 自動取得なし | 画面の「過去分取得」 | 再解析なので「最新」は無い |
 
 公開サイトは、**ECMWF 00/12/18Z・GFS 00/12Z・AIFS 00/12Z の約2日分**（ECMWF 5・GFS 4・AIFS 4 初期値）を載せます（設定は `nwp_data.MODELS` の `publish_hours` / `publish_keep`）。
