@@ -38,7 +38,7 @@ NOTIFY_INTERVAL = 24 * 3600
 DEFAULTS = {
     "grib_gb": 3.0,        # data/ecmwf・data/gfs の GRIB2（自由選択の取得分）
     "custom_mb": 500.0,    # output/custom の画像
-    "gsm_gb": 6.0,         # data/gsm（警告のみ。GSM は3日分で約3.5GB）
+    "gsm_gb": 7.0,         # data/gsm（警告のみ。GSM は00/12/18UTCの3日分（9初期値）で約5.3GB。手動取得分の余裕込みで7GB。2026-11-24に6→7）
     "output_gb": 4.0,      # output/ の作図済み画像（警告のみ。5モデルで約2GB）
     "free_warn_gb": 20.0,  # ボリュームの空きがこれより少ないと警告
     "free_min_gb": 5.0,    # これより少ないと、自由選択の新しい取得を止める
