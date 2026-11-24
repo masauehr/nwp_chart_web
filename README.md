@@ -302,3 +302,4 @@ kill $(lsof -ti :8790)                                                          
 
 ## 公開分をローカルへ取り込む
 CI が作った画像は公開側にしか無いので、`python sync_public.py` か画面の「公開分を同期」ボタンで手元へ取り込む（launchd 雛形 `launchd/com.masahiro.nwp_chart_web_sync.plist` で30分おきの自動実行も可）。
+- **2026-11-24 flux950の説明を追加**: 画面フッター（`web/index.html` の折りたたみ「950hPa 水蒸気フラックス図について」）に、図の見方と、950hPa（約500m高度）の水蒸気場を見る理由、参考文献として加藤(2017)『[図解説 中小規模気象学](https://www.jma.go.jp/jma/kishou/know/expert/pdf/textbook_meso_v2.1.pdf)』（気象庁, 316pp.。第3章 大雨の発生メカニズム・第4章 大雨の発生要因。引用は 加藤(2017)／加藤輝之, 2017: 図解説 中小規模気象学, 気象庁, 316pp.）を載せた。教科書の掲載ページは [気象の専門家向け資料集](https://www.jma.go.jp/jma/kishou/know/expert/index.html)。

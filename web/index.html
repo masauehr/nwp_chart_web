@@ -90,6 +90,11 @@
 <footer>
   <p id="credit" class="credit"></p>
   <details class="updInfo">
+    <summary>950hPa 水蒸気フラックス図について（なぜ下層の水蒸気を見るのか）</summary>
+    <p>図種「950hPa（水蒸気フラックス）」は、950hPa面（標準大気でおよそ高度500m）の<b>水蒸気フラックス（空気密度×比湿×風。単位 g/m²/s）</b>を青〜赤で塗り、その<b>収束</b>を緑の等値線とハッチ、風を矢羽で示します。大雨は、下層に大量の水蒸気が流れ込み、収束などで持ち上げられる場所で起こりやすいため、500m付近の水蒸気の流入を見ます。塗りの区切り（50〜500）は気象庁の解析図と同じで、季節によらず固定です。</p>
+    <p>参考: 加藤(2017)『<a href="https://www.jma.go.jp/jma/kishou/know/expert/pdf/textbook_meso_v2.1.pdf" target="_blank" rel="noopener">図解説 中小規模気象学</a>』（気象庁, 316pp.）。第3章「大雨の発生メカニズム」・第4章「大雨の発生要因」で、大雨と下層の水蒸気場（500m高度のデータなど）の重要性が解説されています。作れるのは 950hPa 面のあるモデル（GFS・GSM日本域・JRA-55）だけで、ECMWF・AIFS は作りません。</p>
+  </details>
+  <details class="updInfo">
     <summary>各モデルの更新（自動取得する初期値と、揃う時刻の目安）</summary>
     <table>
       <thead><tr><th>モデル</th><th>自動取得する初期値(UTC)</th><th>72時間分が揃う時刻の目安(UTC)</th></tr></thead>
