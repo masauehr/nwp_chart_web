@@ -30,7 +30,7 @@ OUTPUT = ROOT / "output" / "msm"      # 作図した PNG
 KEEP = ".keep"                        # 手動取得の目印（これがある初期値は自動削除しない）
 FILE_RE = re.compile(r"Z__C_RJTD_(\d{10})\d{4}_MSM_GPV_")
 INIT_HOURS = (0, 3, 6, 9, 12, 15, 18, 21)   # MSM の初期時刻（UTC・3時間毎）
-FT_CHOICES = (24, 48, 78)             # 取得する予報時間[h]の選択肢（78hで約0.57GB。00/12UTC以外は39hまで）
+FT_CHOICES = (24, 39, 48, 78)             # 取得する予報時間[h]の選択肢（78hで約0.57GB。00/12UTCは最大78h、それ以外は最大39h。画面は初期時刻に合わせて出し分ける）
 
 
 def parse_init(text):
@@ -137,7 +137,10 @@ def fetch(init_s, max_ft=78, jobs=3, dl_jobs=4):
     d = OUTPUT / s
     d.mkdir(parents=True, exist_ok=True)
     (d / KEEP).touch()  # 先に目印を置く（途中で止まっても自動削除されない）
-    max_ft = min(max_ft, msm_source.max_ft_of(msm_source.parse_init(s)))   # 00/12UTC以外は39hまで
+    limit = msm_source.max_ft_of(msm_source.parse_init(s))
+    if max_ft > limit:
+        print(f"注意: {s[8:]}UTC 初期値は FT{limit}h までしか配信されないため、FT{limit}h までにします（指定は {max_ft}h）", flush=True)
+        max_ft = limit
     print(f"{s}（UTC）を取得して作図します（FT0〜{max_ft}h）", flush=True)
     rc = subprocess.run([sys.executable, "-u", str(ROOT / "make_charts.py"), "msm", s, "--max-ft", str(max_ft),
                          "--interval", "3", "--jobs", str(jobs), "--dl-jobs", str(dl_jobs)], cwd=ROOT).returncode

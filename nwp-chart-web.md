@@ -177,7 +177,7 @@ GitHub Pages の配信元は **gh-pages ブランチ**（画像と画面ファ�
 - **作る図**: 地域は**日本域 `japan3`・南西域 `okinawa3` のみ**（`japan`/`okinawa`/`asia` は `exclude`。データ範囲が日本域だけのため）。FT間隔は3時間。図種は jet300・z500・t500・t700・t850・t925・ept850・flux950（950hPaあり）・tenki・surf の10種（jet100/jet200/t300 はアジア域のみなので作らない）。南西域は下端（22.4°N以南）が白く欠ける。
 - **自動取得（launchd）**: 00/12/**18**UTC を自動取得・作図。雛形 `launchd/com.masahiro.nwp_chart_web_msm.plist`（**登録はユーザーが行う**: `cp launchd/com.masahiro.nwp_chart_web_msm.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.masahiro.nwp_chart_web_msm.plist`）。1時間おきに `update_latest.py --models msm --init-hours 0 12 18 --keep-days 3 --jobs 4 --dl-jobs 6` を実行。18UTC は39hまでなので、`update_latest`／`msm_source.find_latest_complete` は**初期値ごとに FT 上限を丸める**（`nwp_data.max_step`）。03/06/09/15/21UTC は手動（画面の「過去分取得」）。
 - **所要・容量（実測 2026-11-27）**: 18Z（FT0〜39h・14コマ・280枚）で作図まで約4分37秒（取得 292MB・PNG 49MB）。00/12Z（27コマ・540枚）は約9〜10分・PNG 約95MB の見込み。3日保持で GRIB2 約4.3GB・PNG 約0.9GB。`disk_guard` の上限は `msm_gb`=6GB・`output_gb`=4→6GB に引き上げた（警告のみ）。
-- **過去分**: 画面の「過去分取得」でモデル=JMA MSM（時刻は3時間毎・予報時間 24/48/78h）。`past_msm.py`（`fetch`/`list`/`delete`）。取得分は `output/msm/<初期値>/.keep` で自動削除から除外。
+- **過去分**: 画面の「過去分取得」でモデル=JMA MSM（時刻は3時間毎・予報時間 24/48/78h。00/12UTC以外は配信が39hまでなので24/39h）。`past_msm.py`（`fetch`/`list`/`delete`）。取得分は `output/msm/<初期値>/.keep` で自動削除から除外。
 - **断面図・エマグラム（自由選択）は MSM 非対応**（対象は ECMWF/GFS/AIFS/GSM）。
 - テスト: `tests/test_msm_source.py`（ファイル名・区間選択・揃い判定・18Z丸め・格子そろえ・地域・past_msm）。
 

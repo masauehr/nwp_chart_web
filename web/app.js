@@ -716,15 +716,21 @@
     renderPast();
   }
 
-  // 予報時間の選択肢（GSM: 24/48/72、MSM: 24/48/78）
+  // 予報時間の選択肢（GSM: 24/48/72。MSM: 00/12UTCは 24/48/78、それ以外の初期時刻は配信が39時間までなので 24/39）
   function setPastFt() {
     const j = pastData; if (!j) return;
     const msm = pastModel() === "msm", sel = $("pastFt");
-    const vals = msm ? j.msm_ft_choices : j.ft_choices, def = msm ? 78 : 72;
-    if (sel.dataset.model === (msm ? "msm" : "gsm") && sel.options.length) return;
+    let vals = j.ft_choices, def = 72;
+    if (msm) {
+      const long = ["00", "12"].includes($("pastHour").value);
+      vals = j.msm_ft_choices.filter((f) => (long ? f !== 39 : f <= 39));
+      def = long ? 78 : 39;
+    }
+    const key = msm ? "msm" + vals.join() : "gsm";
+    if (sel.dataset.key === key && sel.options.length) return;
     sel.innerHTML = "";
     for (const f of vals) sel.add(new Option(`${f}時間`, f, false, f === def));
-    sel.dataset.model = msm ? "msm" : "gsm";
+    sel.dataset.key = key;
   }
 
   async function loadPast() {
@@ -738,6 +744,7 @@
   }
 
   $("pastModel").onchange = applyPastModel;
+  $("pastHour").onchange = setPastFt;                                   // MSMは初期時刻で最大予報時間が変わる
   $("btnPast").onclick = () => {
     const d = new Date(Date.now() - 3 * 86400e3);   // 既定は3日前（自動取得の範囲より古い日）
     if (!$("pastDate").value) $("pastDate").value = d.toISOString().slice(0, 10);

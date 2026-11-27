@@ -99,7 +99,7 @@ cd ~/projects/nwp_chart_web
 気象庁のメソモデル MSM（日本域0.125°・3時間毎）を、京大RISHから取得して**日本域（`japan3`）・南西域（`okinawa3`）の2地域**で作図します（ローカル専用・公開しない）。詳細は [nwp-chart-web.md](nwp-chart-web.md) の「MSM」。
 - 初期値は **00 / 12 / 18UTC を自動取得**（00/12Z は78時間先、18Z は39時間先まで）。launchd の雛形は `launchd/com.masahiro.nwp_chart_web_msm.plist`（**登録はユーザー**: `cp` して `launchctl load`）。手動は `python make_charts.py msm --latest`。
 - 容量は3日保持で GRIB2 約4.3GB＋画像約0.9GB。`disk_guard` の上限は MSM 用に引き上げ済み（警告のみ）。
-- 過去分は画面の「過去分取得」（モデル=JMA MSM・時刻は3時間毎・予報時間 24/48/78h）、またはコマンド `python past_msm.py fetch 2026101012 [--max-ft 24|48|78]` / `list` / `delete`。
+- 過去分は画面の「過去分取得」（モデル=JMA MSM・時刻は3時間毎・予報時間 24/48/78h（00/12UTC以外は最大39h））、またはコマンド `python past_msm.py fetch 2026101012 [--max-ft 24|48|78]` / `list` / `delete`。
 - 等圧面（0.25°×0.2°）は地上（0.125°×0.1°）の格子へ線形補間でそろえて描きます。断面図・エマグラムは MSM 非対応です。
 
 ### 登録している launchd（一覧・ローカルのみ）
