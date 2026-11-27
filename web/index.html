@@ -31,6 +31,7 @@
   <label><span id="initLabel">初期値</span>
     <select id="initSel"></select>
   </label>
+  <button id="btnKeep" hidden title="この初期値の画像（GSM・MSMはデータも）を、3日を過ぎても自動で消えないよう保存します（ローカルのみ）">保存</button>
   <div id="regionBtns" class="seg" role="group" aria-label="地域"></div>
   <button id="btnUpdate" title="RISHから最新データを取得して作図します">最新を取得</button>
   <button id="btnSync" title="公開サイトで作られた最新の画像を、手元へ取り込みます（GFS・AIFS・ECMWF）">同期</button>
@@ -125,7 +126,7 @@
     <button id="pastGo">取得して作図</button>
   </div>
   <div id="pastMsg" class="note"></div>
-  <table id="pastTbl"><thead><tr><th id="pastInitHead">初期値（UTC）</th><th id="pastHead">GRIB2</th><th>画像</th><th id="pastHeadMan">手動</th><th>削除</th></tr></thead><tbody></tbody></table>
+  <table id="pastTbl"><thead><tr><th id="pastInitHead">初期値（UTC）</th><th id="pastHead">GRIB2</th><th>画像</th><th id="pastHeadMan">保存</th><th>削除</th></tr></thead><tbody></tbody></table>
   <p id="pastTotal" class="note"></p>
   <div class="pastRow"><button id="pastClose">閉じる</button></div>
 </dialog>

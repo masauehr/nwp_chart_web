@@ -183,6 +183,7 @@
     }
     $("updated").textContent = "更新 " + updatedUtc(m.updated);
 
+    await loadPinned();                               // 保存済みの初期値（ローカルサーバーのときだけ。公開サイトは null）
     S.local = await loadCustom();                     // ローカルサーバーなら自由選択の一覧が返る（公開サイトでは公開された図の一覧を読む）
     const h = Object.assign({}, loadSel(), loadHash());   // URLの指定を優先し、無い項目は前回の選択
     const models = modelKeys();
@@ -292,7 +293,7 @@
       const o = document.createElement("option");
       const d = parseInit(i.init);
       o.value = i.init;
-      o.textContent = fmt(d, 0, "UTC");
+      o.textContent = fmt(d, 0, "UTC") + (isPinned(S.model, i.init) ? " ★" : "");
       if (anal) {                                                      // 系列のコマ数（異なる予報時間の数）。時刻はスライダー・再生で動かす
         const n = Math.max(0, ...Object.values(i.regions || {}).flatMap((r) => Object.values(r).map((l) => l.length)));
         if (n > 1) o.textContent += ` から${n}コマ（＋${(n - 1) * 6}h）`;
@@ -300,8 +301,45 @@
       sel.appendChild(o);
     }
     sel.value = S.init;
-    sel.onchange = () => { S.init = sel.value; keepValid(); buildRegionBtns(); buildTabs(); update(); };
+    sel.onchange = () => { S.init = sel.value; keepValid(); buildRegionBtns(); buildTabs(); update(); renderKeepBtn(); };
+    renderKeepBtn();
   }
+
+  // ---------- 初期値の保存（自動削除の除外）。サーバーの /api/keep（ローカルのときだけ）。★付きの初期値は3日を過ぎても消えない
+  let pinned = null;                                                   // {モデル: [保存済みの初期値]}。APIが無い（公開サイト）なら null
+  const isPinned = (model, init) => !!(pinned && (pinned[model] || []).includes(init));
+  function renderKeepBtn() {
+    const b = $("btnKeep");
+    if (!pinned || S.model === "jra55") { b.hidden = true; return; }   // 公開サイト・JRA-55（元から自動削除されない）は出さない
+    b.hidden = false;
+    b.classList.remove("sure");
+    const on = isPinned(S.model, S.init);
+    b.textContent = on ? "★保存済み（解除）" : "保存";
+    b.title = on ? "この初期値は自動削除されません。押すと保存を解除します（画像・データはその場では消えません）"
+                 : "この初期値の画像（GSM・MSMはデータも）を、3日を過ぎても自動で消えないよう保存します";
+  }
+  async function loadPinned() {
+    try {
+      const j = await (await fetch(API + "keep", { cache: "no-store" })).json();
+      pinned = j && j.pinned ? j.pinned : null;
+    } catch (e) { pinned = null; }
+  }
+  $("btnKeep").onclick = async () => {
+    const b = $("btnKeep"), on = isPinned(S.model, S.init);
+    if (on && !b.classList.contains("sure")) {                         // 解除は2回押して確定（誤操作防止）
+      b.classList.add("sure"); b.textContent = "本当に解除";
+      setTimeout(() => { if (b.classList.contains("sure")) renderKeepBtn(); }, 4000);
+      return;
+    }
+    b.disabled = true;
+    try {
+      const r = await fetch(API + "keep", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: S.model, init: S.init, keep: !on }) });
+      const j = await r.json();
+      if (r.ok) pinned = j.pinned_map; else $("updateMsg").textContent = j.error || "保存できません";
+    } catch (e) { $("updateMsg").textContent = "保存できません"; }
+    b.disabled = false;
+    buildInitSel();
+  };
 
   function buildRegionBtns() {
     const box = $("regionBtns");

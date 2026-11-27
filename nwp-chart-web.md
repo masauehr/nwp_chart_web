@@ -110,6 +110,7 @@ python make_charts.py ?                     # ヘルプ
 | `server.py` | ローカルサーバー（`/`=web/、`/output/`、更新API、過去分取得API `/api/past/*`＝GSM・JRA-55）。既定ポート8790 |
 | `jra55_source.py` / `past_jra55.py` | JRA-55（ローカル専用・再解析）の取得（範囲読み込み）・読み込み・一覧・削除。画面の「過去分取得」（モデル=JRA-55）と同じ機能のCLI。テスト `tests/test_jra55.py`（22件） |
 | `msm_source.py` | **MSM（ローカル専用）** の取得（京大RISH、ファイル全体）と読み込み。日本域0.125°。等圧面（0.25°×0.2°）を地上の格子へそろえる。`gsm_source.py` のコピーを調整 |
+| `keep_init.py` | 初期値の保存（`.keep` の設置・解除・一覧）。画面の「保存」ボタンと同じ機能のCLI。標準ライブラリのみ。テスト `tests/test_keep_init.py` |
 | `past_msm.py` | MSM（ローカル専用）の過去の初期値の取得・一覧・削除。`past_gsm.py` のコピーを調整 |
 | `past_gsm.py` | GSM（ローカル専用）の過去の初期値の取得・一覧・削除。画面の「過去分取得」ボタンと同じ機能のCLI。テスト `tests/test_past_gsm.py`（16件） |
 | `web/` | 通常版 / `web/board/` 画用紙版（相対パスなので静的サイトのサブパスでも動く） |
@@ -180,6 +181,15 @@ GitHub Pages の配信元は **gh-pages ブランチ**（画像と画面ファ�
 - **過去分**: 画面の「過去分取得」でモデル=JMA MSM（時刻は3時間毎・予報時間 24/48/78h。00/12UTC以外は配信が39hまでなので24/39h）。`past_msm.py`（`fetch`/`list`/`delete`）。取得分は `output/msm/<初期値>/.keep` で自動削除から除外。
 - **断面図・エマグラム（自由選択）は MSM 非対応**（対象は ECMWF/GFS/AIFS/GSM）。
 - テスト: `tests/test_msm_source.py`（ファイル名・区間選択・揃い判定・18Z丸め・格子そろえ・地域・past_msm）。
+
+## 初期値の保存（自動削除の除外・2026-11-27）
+
+自動取得の画像・データは3日で消える（`update_latest.py --keep-days`、`sync_public.py` の整理）。特定の初期値を残すには**保存**する。
+- 仕組み: 過去分取得（`past_gsm.py`/`past_msm.py`）と同じ目印 `output/<モデル>/<初期値>/.keep` を置く／外す（`keep_init.py`）。**既に手元にある初期値**にも使える（過去分取得で取った初期値は最初から保存済み）。
+- 画面: 初期値の選択の右の「保存」ボタン（ローカルのみ）。★付き＝保存済み。解除は2回押し。CLI: `python keep_init.py pin|unpin <モデル> <初期値>` / `list`。API: `GET/POST /api/keep`（`_local_only`・同一Origin）。
+- 守られるもの: `update_latest` の `--keep-days`・`--keep`（画像。GSM・MSM は GRIB2 も）、`sync_public.prune`（ECMWF/GFS/AIFS の画像）。
+- 制約: 対象は ecmwf・gfs・aifs・gsm・msm（JRA-55 は元から消えない）。ECMWF/GFS/AIFS は GRIB2 を作図後に捨てるので画像だけ。GSM・MSM は GRIB2 が消える前（3日以内）に保存する。画像が無い初期値は保存不可。容量は保存した分だけ増え続ける（`disk_guard` は警告のみ）。
+- テスト: `tests/test_keep_init.py`（保存・解除・不正指定・一覧・自動整理が保存分を残す・API）。
 
 ## 2026-11-04 画面・表示の修正
 - **通常版の操作ボタン**（最初・1コマ戻る・再生・1コマ進む・最後・スライダー）と時刻表示を**画像の上**へ移動。
@@ -393,3 +403,4 @@ tenkizu_web（天気図・断面図・エマグラムのビューア）で作っ
 - **2026-11-27 MSM（メソモデル）をローカル専用モデルとして追加**: 京大RISHから取得（`msm_source.py`）。日本域 `japan3`/`okinawa3` のみ・3時間毎・00/12/18UTC 自動（18Zは39hまで）。等圧面と地上の格子差（0.25°×0.2°と0.125°×0.1°）を線形補間でそろえる。過去分取得（`past_msm.py`・画面）・launchd雛形・`disk_guard` 上限引き上げ。公開しない（`local_only`）。
 - **2026-11-27 MSM過去分取得の予報時間を初期時刻に合わせた**: 00/12UTC は 24/48/78時間、それ以外は配信が39時間までなので 24/39時間（画面は時刻を変えると選択肢も変わる）。CLIは上限を超えた指定を丸めて注意を出す。MSMは39h・78hより長くはできない（RISHの配信が終わるため）。
 - **2026-11-27 画面の説明文を更新**: 「ローカルの GSM・MSM（00/12/18Z）と JRA-55 は公開されません」（通常版・画用紙版の `index.html`）。
+- **2026-11-27 特定の初期値を「保存」できるようにした**: 初期値の選択の右の「保存」ボタン（★表示・解除は2回押し）と `keep_init.py`（pin/unpin/list）、`/api/keep`。過去分取得と同じ `.keep` 目印で、3日整理（update_latest・sync_public）から除外する。

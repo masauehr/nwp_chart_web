@@ -39,7 +39,7 @@ def log(msg):
 
 
 def prune(keep_days, dry_run=False):
-    """初期時刻が keep_days 日より古い手元の初期値ディレクトリを削除する（公開対象モデルのみ）。"""
+    """初期時刻が keep_days 日より古い手元の初期値ディレクトリを削除する（公開対象モデルのみ。.keep のある保存済みは除く）。"""
     cutoff = datetime.now(timezone.utc) - timedelta(days=keep_days)
     n = 0
     for m in MODELS:
@@ -49,6 +49,8 @@ def prune(keep_days, dry_run=False):
         for sub in sorted(d.iterdir()):
             if not (sub.is_dir() and len(sub.name) == 10 and sub.name.isdigit()):
                 continue
+            if (sub / ".keep").exists():
+                continue          # 保存した初期値（keep_init.py・画面の「保存」）は整理しない
             if nwp_data.parse_init(sub.name) < cutoff:
                 n += 1
                 log(f"古い初期値を削除{' [dry-run]' if dry_run else ''}: {m}/{sub.name}")

@@ -72,3 +72,4 @@ footer { max-width:1000px; margin:0 auto; padding:0 16px 24px; color:#667; font-
 #legal h3 { font-size:12px; margin:10px 0 2px; color:#334; }
 #legal p { margin:2px 0; word-break:break-word; }
 footer a { color:var(--accent); }
+#btnKeep.sure { background:#c0392b; color:#fff; border-color:#c0392b; }

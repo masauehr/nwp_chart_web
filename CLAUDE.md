@@ -37,6 +37,11 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - `gsm_source.py` は `gsm_chart_web/gsm_data.py` のコピー（共通部品化しない）。
 - **GSMの過去の初期値**は画面の「過去分取得」ボタン（`past_gsm.py`・`/api/past/*`）で手動取得。取得分は `output/gsm/<初期値>/.keep` の目印で自動削除（`--keep-days`/`--keep`）から除外される。GRIB2・画像は画面の一覧から手動で削除する（2回押し）。APIは `_local_only`・同一Originのみ・`no-cache`（外さない）。
 
+## 初期値の保存（`.keep`・2026-11-27）
+- `keep_init.py`（標準ライブラリのみ）が `output/<モデル>/<初期値>/.keep` を置く／外す。画面の「保存」ボタン（`web/app.js` の `loadPinned`/`renderKeepBtn`、ローカルのみ・★表示・解除は2回押し）と `/api/keep`（`_local_only`・同一Origin。外さない）。過去分取得の `.keep` と同じ目印。
+- 自動整理は `.keep` を見て除外する: `update_latest.prune`/`prune_days`（GSM・MSM は GRIB2 も）、**`sync_public.prune`**（2026-11-27 に対応）。**新しい自動削除処理を足すときは必ず `.keep` を尊重すること**。
+- 対象は ecmwf・gfs・aifs・gsm・msm（JRA-55 は元から消えない）。画像の無い初期値は保存不可。ECMWF/GFS/AIFS は GRIB2 を捨てるので画像だけ守られる。
+
 ## MSM（ローカル専用モデル・2026-11-27）
 - `nwp_data.MODELS["msm"]`（`local_only`）。**公開しない**（GSM と同じ除外が `local_only` で効く。外さない）。`msm_source.py` は `gsm_source.py` のコピー調整、`past_msm.py` は `past_gsm.py` のコピー調整（共通部品化しない）。
 - 地域は `japan3`/`okinawa3` のみ（`japan`/`okinawa`/`asia` は `exclude=("msm",)`）。FT間隔3h。00/12Zは78h・他は39h（`nwp_data.max_step`。`update_latest`・`msm_source.find_latest_complete` は初期値ごとに上限を丸める）。

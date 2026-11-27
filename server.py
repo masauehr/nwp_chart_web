@@ -13,6 +13,7 @@
   GET  /api/custom/list → 自由選択で作った画像の「最近の作図」（直近10件・新しい順。画像ファイルから作る）
   POST /api/custom/publish・unpublish → 自由選択で作った画像を公開サイトに載せる／外す（publish.py --custom。ローカルのみ）
   GET  /api/disk    → ローカルのディスク使用量と上限（disk_guard.py。ローカルからのみ）
+  GET  /api/keep         → 保存（自動削除の除外）している初期値の一覧。POST {model,init,keep:true|false} で保存／解除（keep_init.py）
   GET  /api/past/list     → GSM・MSM・JRA-55（ローカル専用）の初期値（有効時刻）ごとのデータ・画像の数と容量
   POST /api/past/fetch    → 過去の初期値を取得して作図（本文 {"model":"gsm","init":"YYYYMMDDHH","max_ft":72}
                             または {"model":"jra55","init":"YYYYMMDDHH","days":1}。past_gsm.py / past_jra55.py を裏で実行）
@@ -39,6 +40,7 @@ sys.path.insert(0, str(ROOT))
 import past_gsm  # noqa: E402  標準ライブラリのみ（GSM過去分の一覧・削除。取得はジョブとして別プロセスで実行）
 import past_jra55  # noqa: E402  同（JRA-55版）
 import past_msm  # noqa: E402  同（MSM版）
+import keep_init  # noqa: E402  初期値の保存（自動削除の除外）・解除
 import custom  # noqa: E402  任意の断面線・地点の作図（ローカル専用）
 import disk_guard  # noqa: E402  ディスク使用量の制限・通知
 LOG_FILE = ROOT / "logs" / "update_ui.log"
@@ -118,6 +120,10 @@ class Handler(SimpleHTTPRequestHandler):
                 self._json(200, {"inits": past_gsm.list_inits(), "ft_choices": list(past_gsm.FT_CHOICES),
                                  "msm_inits": past_msm.list_inits(), "msm_ft_choices": list(past_msm.FT_CHOICES),
                                  "jra55": past_jra55.list_rows(), "days_choices": list(past_jra55.DAYS_CHOICES), **job_status()})
+            return
+        if path == "/api/keep":
+            if self._local_only():
+                self._json(200, {"pinned": keep_init.pinned_map(), "items": keep_init.list_pinned()})
             return
         if path == "/api/custom":
             self._custom()
@@ -213,7 +219,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
-        if path not in ("/api/update", "/api/sync", "/api/past/fetch", "/api/past/delete", "/api/custom/publish", "/api/custom/unpublish"):
+        if path not in ("/api/update", "/api/sync", "/api/past/fetch", "/api/past/delete", "/api/keep", "/api/custom/publish", "/api/custom/unpublish"):
             self._json(404, {"error": "not found"})
             return
         if not self._local_only():
@@ -228,6 +234,15 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path.startswith("/api/past/"):
             self._past(path)
+            return
+        if path == "/api/keep":
+            b = self._body()
+            try:
+                r = keep_init.pin(str(b.get("model", "")), b.get("init", ""), bool(b.get("keep", True)))
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+                return
+            self._json(200, {**r, "pinned_map": keep_init.pinned_map()})
             return
         started = start_update("sync_public.py", ()) if path == "/api/sync" else start_update()
         self._json(200, {"started": started, **job_status()})
