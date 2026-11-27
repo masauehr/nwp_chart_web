@@ -1,8 +1,8 @@
-# nwp_chart_web — 数値モデル天気図ビューア（ECMWF / GFS / AIFS / GSM。公開サーバー対応）
+# nwp_chart_web — 数値モデル天気図ビューア（ECMWF / GFS / AIFS / GSM / MSM。公開サーバー対応）
 
 詳しくは [nwp-chart-web.md](nwp-chart-web.md) を参照。公開サーバーの方式・手順は [PUBLISH.md](PUBLISH.md)、設計・調査結果は [DESIGN.md](DESIGN.md)。
 
-ECMWF（IFS）・ECMWF AIFS（AI予報モデル）・NOAA GFS（いずれも 0.25°）、およびローカル専用で気象庁GSM から、気象庁ビューア風の天気図PNGを作り、ブラウザで閲覧する。
+ECMWF（IFS）・ECMWF AIFS（AI予報モデル）・NOAA GFS（いずれも 0.25°）、およびローカル専用で気象庁GSM・MSM（メソモデル）から、気象庁ビューア風の天気図PNGを作り、ブラウザで閲覧する。
 [gsm_chart_web](https://github.com/masauehr/gsm_chart_web)（GSM版・旧版）と同じ機能を、複数モデルで・公開サーバーに置ける形で作ったものです。
 
 > **関連リポジトリ**: [gsm_chart_web](https://github.com/masauehr/gsm_chart_web) は GSM（気象庁）だけを扱う**旧版（ローカル専用・調査用）**です。こちら（nwp_chart_web）が**後継**で、GSM もローカル専用モデルとして含み、ECMWF・GFS・AIFS と比較できます。GSM だけを単独で動かしたい場合は旧版も使えます（ポートが違うので同時に起動できます）。
@@ -95,11 +95,19 @@ cd ~/projects/nwp_chart_web
 - 地表気圧(PRES)で、地面より下の等圧面をマスクする（JRA-55は地面下を外挿値で埋めているため）。
 - 手元の月ファイル（tenkizu の `data/Jra55` と同じ構成）があれば、環境変数 `JRA55_RAW_DIR` で優先して読める（読み取りのみ。削除しない）。
 
+### MSM（メソモデル・ローカル専用・2026-11-27〜）
+気象庁のメソモデル MSM（日本域0.125°・3時間毎）を、京大RISHから取得して**日本域（`japan3`）・南西域（`okinawa3`）の2地域**で作図します（ローカル専用・公開しない）。詳細は [nwp-chart-web.md](nwp-chart-web.md) の「MSM」。
+- 初期値は **00 / 12 / 18UTC を自動取得**（00/12Z は78時間先、18Z は39時間先まで）。launchd の雛形は `launchd/com.masahiro.nwp_chart_web_msm.plist`（**登録はユーザー**: `cp` して `launchctl load`）。手動は `python make_charts.py msm --latest`。
+- 容量は3日保持で GRIB2 約4.3GB＋画像約0.9GB。`disk_guard` の上限は MSM 用に引き上げ済み（警告のみ）。
+- 過去分は画面の「過去分取得」（モデル=JMA MSM・時刻は3時間毎・予報時間 24/48/78h）、またはコマンド `python past_msm.py fetch 2026101012 [--max-ft 24|48|78]` / `list` / `delete`。
+- 等圧面（0.25°×0.2°）は地上（0.125°×0.1°）の格子へ線形補間でそろえて描きます。断面図・エマグラムは MSM 非対応です。
+
 ### 登録している launchd（一覧・ローカルのみ）
 `launchd/` の雛形を `~/Library/LaunchAgents/` に置いて登録します（登録はユーザーが行う）。
 
 | ラベル | 内容 | 間隔 |
 |---|---|---|
+| `com.masahiro.nwp_chart_web_msm`（雛形のみ・登録はユーザー） | MSM（00/12/18UTC）の自動取得・作図（3日より古い分は削除。手動取得分は除く） | 1時間おき |
 | `com.masahiro.nwp_chart_web_gsm` | GSM（00/12/18UTC）の自動取得・作図（3日より古い分は削除。手動取得分は除く） | 1時間おき |
 | `com.masahiro.nwp_chart_web_sync` | 公開側で作られた画像を手元へ取り込む（`sync_public.py`） | 30分おき |
 | `com.masahiro.nwp_chart_web_availability` | 配信時刻の実測を記録（`check_availability.py`。cron時刻の根拠） | 10分おき |
@@ -136,6 +144,7 @@ GSM は **00・12・18UTC の初期値**を、launchd で自動取得・作図�
 | **ECMWF** | **00 / 12 / 18**（1日3回） | 公開サイト（GitHub Actions） | 配信は 00/06/12/18 の4回だが、**06Z は取らない**。**18Z も取る**のが GFS・AIFS との違い。00/12Z は144時間先まで配信されるが72時間までを作り、**18Z は90時間先までしか配信されない**（72時間までは作れる） |
 | **GFS** | **00 / 12**（1日2回） | 同上 | 06/18Z は取らない（公開容量1GBの都合） |
 | **AIFS** | **00 / 12**（1日2回） | 同上 | 配信は6時間刻みで4回/日だが、公開は 00/12Z のみ（容量の都合） |
+| MSM（ローカル専用） | 00 / 12 / **18** | Mac の launchd（1時間おき・雛形 `…_msm.plist`、登録はユーザー） | 00/12Zは78h・18Zは39hまで。03/06/09/15/21Zは手動（過去分取得） |
 | GSM（ローカル専用） | 00 / 12 / **18** | Mac の launchd（1時間おき） | 06Z は手動（`--init-hours 0 6 12 18`）。過去分は「過去分取得」ボタン |
 | JRA-55（ローカル専用） | 自動取得なし | 画面の「過去分取得」 | 再解析なので「最新」は無い |
 
@@ -214,7 +223,7 @@ kill $(lsof -ti :8790)                                                          
 ## 図種・地域
 
 - 図種（**高層→地上の順**に並ぶ。2026-11-10〜。並びは `nwp_charts.CHARTS` の定義順。画面（`web/app.js` の `CHART_ORDER`）にも同じ順を持つ。図種を足すときは両方に入れる）: **100hPa ジェット（GSM・JRA-55のみ・アジア域・tenkizu の GSM_100hPa.py と同じ表示）** / **200hPa ジェット（アジア域のみ）** / 300hPa ジェット / **300hPa 気温・湿数（アジア域のみ）** / 500hPa 高度・渦度 / 500hPa 気温・湿数 / 700hPa / 850hPa EPT・SSI / 850hPa 気温・湿数 / 925hPa / 950hPa 水蒸気フラックス・収束（`flux950`・GFS・GSM日本域・JRA-55のみ。旧975hPa気温図は廃止・2026-11-24）/ 地上（天気・SSI）/ 地上（降水）
-- モデル: ECMWF（IFS）/ ECMWF AIFS（AI。6時間刻み）/ NOAA GFS（以上は公開サイトにも載る）、**JMA GSM（ローカル専用・公開しない。日本域0.125°・3時間毎も）**
+- モデル: ECMWF（IFS）/ ECMWF AIFS（AI。6時間刻み）/ NOAA GFS（以上は公開サイトにも載る）、**JMA GSM（ローカル専用・公開しない。日本域0.125°・3時間毎も）**、**JMA MSM（ローカル専用・日本域のみ）**
 - 地域: 日本周辺 / 沖縄周辺 / 東アジア広域
 - **地域の入れ替え**: 地域は増やさない（公開サイトの容量のため）。代わりに、設定ファイルで「沖縄周辺」を九州・関東などに入れ替えられる。手順・書式・設定例は下の「[ローカル地域「沖縄周辺」の入れ替え方法](#ローカル地域沖縄周辺の入れ替え方法)」。
 
@@ -297,7 +306,7 @@ kill $(lsof -ti :8790)                                                          
 
 - ECMWF（IFS・AIFS）: ECMWF Open Data（CC BY 4.0）。Contains ECMWF open data.
 - NOAA/NCEP GFS（NOMADS / AWS Open Data）。
-- 気象庁 GSM（京都大学生存圏研究所 RISH 配信）— ローカル専用。データは含めず、利用条件は配信元で確認すること。
+- 気象庁 GSM・MSM（京都大学生存圏研究所 RISH 配信）— ローカル専用。データは含めず、利用条件は配信元で確認すること。
 
 
 ## 公開分をローカルへ取り込む
@@ -305,3 +314,4 @@ CI が作った画像は公開側にしか無いので、`python sync_public.py`
 - **2026-11-24 flux950の説明を追加**: 画面フッター（`web/index.html` の折りたたみ「950hPa 水蒸気フラックス図について」）に、図の見方と、950hPa（約500m高度）の水蒸気場を見る理由、参考文献として加藤(2017)『[図解説 中小規模気象学](https://www.jma.go.jp/jma/kishou/know/expert/pdf/textbook_meso_v2.1.pdf)』（気象庁, 316pp.。第3章 大雨の発生メカニズム・第4章 大雨の発生要因。引用は 加藤(2017)／加藤輝之, 2017: 図解説 中小規模気象学, 気象庁, 316pp.）を載せた。教科書の掲載ページは [気象の専門家向け資料集](https://www.jma.go.jp/jma/kishou/know/expert/index.html)。
 - **2026-11-24 flux950の公開サイト上の扱いを画面に明記**: フッターの説明に「この公開サイトで表示されるのは GFS だけ（日本周辺・沖縄周辺・東アジア広域）。ECMWF・AIFS は 950hPa 面が無いため作らない」と記載（GSM日本域 `japan3`・南西域 `okinawa3` はローカル専用で公開しない。GSM全球の Rgl には950hPaが無いため、GSMの「日本周辺」等には出ない。ユーザー決定: GSMは現状のまま・内挿しない）。
 - **2026-11-24 「公式予報ではない」注意書きを追加**: ①画面上部の出典表示（通常版 `web/app.js` の `buildCredit`・画用紙版 `web/board/board.js` の `refreshCredit`）の先頭に太字で「本サイトの図は、数値予報モデルのデータを加工した参考図であり、いかなる国・機関の公式予報でもありません。」 ②各PNGの下の帯の右端に「公式予報ではありません」（`nwp_charts.render_chart`。画像だけ共有されても分かる。**この日以降に作る画像から**。作成済みの画像は再作図まで付かない） ③manifest の免責文（`make_charts.py` の `disclaimer`）を「各提供元の公式な図ではなく、いかなる国・機関の公式予報でもありません」に拡張。フッターの flux950 説明の地域の括弧書き（日本周辺・沖縄周辺・東アジア広域）は削除（ユーザー指示）。
+- **2026-11-27 MSM（メソモデル）をローカル専用モデルとして追加**: 京大RISHから取得（`msm_source.py`）。日本域 `japan3`/`okinawa3` のみ・3時間毎・00/12/18UTC を自動取得（18Zは39hまで）。等圧面と地上の格子差（0.25°×0.2°と0.125°×0.1°）を線形補間でそろえる。過去分取得（`past_msm.py`・画面）・launchd雛形・`disk_guard` の上限引き上げ（msm_gb=6・output_gb=6）。公開サイトには載せない（`local_only`）。

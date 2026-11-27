@@ -25,6 +25,7 @@ from pathlib import Path
 import nwp_data
 import nwp_charts
 import gsm_source
+import msm_source
 import jra55_source
 
 ROOT = Path(__file__).resolve().parent
@@ -32,9 +33,9 @@ OUTPUT_DIR = ROOT / "output"
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="ECMWF / GFS / AIFS / GSM から天気図PNGを作成する",
+    p = argparse.ArgumentParser(description="ECMWF / GFS / AIFS / GSM / MSM から天気図PNGを作成する",
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
-    p.add_argument("model", nargs="?", choices=list(nwp_data.MODELS), help="ecmwf / gfs / aifs / gsm / jra55（gsm・jra55 はローカル専用）")
+    p.add_argument("model", nargs="?", choices=list(nwp_data.MODELS), help="ecmwf / gfs / aifs / gsm / msm / jra55（gsm・msm・jra55 はローカル専用）")
     p.add_argument("init_time", nargs="?", help="初期時刻 YYYYMMDDHH（UTC）。--latest 指定時は省略可")
     p.add_argument("--latest", action="store_true", help="必要な予報時間が全部揃った最新の初期値を自動検索する")
     p.add_argument("--max-ft", type=int, default=72, help="作成する最大予報時間[h]（既定: 72）")
@@ -82,6 +83,12 @@ def _render_ft(args):
 
         def fields(region):
             return F0
+        path = None
+    elif model == "msm":
+        def fields(region):
+            if "msm" not in cache:
+                cache["msm"] = msm_source.load(init, ft, "rjp", d)
+            return cache["msm"]
         path = None
     elif model == "gsm":
         def fields(region):
@@ -225,8 +232,8 @@ def build(a):
     if model == "jra55":
         return build_jra55(a)
     data_dir = Path(a.data_dir)
-    if model == "gsm" and a.data_dir == str(nwp_data.DEFAULT_DATA_DIR):
-        data_dir = nwp_data.DEFAULT_DATA_DIR / "gsm"  # GSMは元のファイル名のまま data/gsm/ に置く（削除しない）
+    if model in ("gsm", "msm") and a.data_dir == str(nwp_data.DEFAULT_DATA_DIR):
+        data_dir = nwp_data.DEFAULT_DATA_DIR / model  # GSM・MSMは元のファイル名のまま data/<モデル>/ に置く（削除しない）
     if a.latest or not a.init_time:
         init = nwp_data.find_latest_complete(model, a.max_ft, a.interval)
         if init is None:
@@ -243,6 +250,8 @@ def build(a):
 
     def dl(ft):
         """1ステップ分を取得する。ECMWF系は降水の差分用に1つ前のステップの tp も取る。"""
+        if model == "msm":
+            return ft, a.no_download or msm_source.fetch(init, ft, data_dir)
         if model == "gsm":
             srcs = {nwp_charts.REGIONS[r].get("src", "main") for r in a.regions}
             if a.no_download:

@@ -41,6 +41,8 @@ MODELS = {
     "aifs": dict(label="AIFS", publish_hours=(0, 12), publish_keep=4),
     # 気象庁GSM（京大RISH配信）。**ローカル専用**: 公開サイト（gh-pages）には載せない。publish.py と CI の対象から除外する
     "gsm": dict(label="JMA GSM", local_only=True),
+    # 気象庁メソモデル MSM（京大RISH配信・日本域0.125°×0.1°・等圧面3時間毎）。**ローカル専用**。自動取得は 00/12/18UTC（2026-11-27）
+    "msm": dict(label="JMA MSM", local_only=True, publish_hours=(0, 12, 18)),
     # 気象庁JRA-55 再解析（京大RISH配信・1.25°・6時間毎）。**ローカル専用**。「初期値」は有効時刻（解析値）でFT0のみ。
     # auto=False: 自動更新(update_latest)の対象外（過去の時刻を画面または past_jra55.py で取得する）
     "jra55": dict(label="JRA-55", local_only=True, auto=False, analysis=True),
@@ -58,8 +60,8 @@ def auto_models():
 
 
 def default_interval(model: str) -> int:
-    """モデルごとの既定のFT間隔[h]。GSMは日本域0.125°が3時間毎のため3、他は6。"""
-    return 3 if model == "gsm" else 6
+    """モデルごとの既定のFT間隔[h]。GSM（日本域0.125°）・MSM（等圧面）は3時間毎のため3、他は6。"""
+    return 3 if model in ("gsm", "msm") else 6
 
 # ECMWFのオープンデータ配信（索引は .index、積算降水 tp は前ステップとの差分、雲量は0-1）の形式を持つモデル → 配信元のパスのモデル名
 ECMWF_LIKE = {"ecmwf": "ifs", "aifs": "aifs-single"}
@@ -98,6 +100,17 @@ def legal_text(model: str, year: int, accessed: str) -> dict:
             "availability, or for any loss or damage arising from their use. The data are provided on an \"as is\" basis.",
         ]
         return dict(short=short, notice=notice, license_url=CC_BY_URL)
+    if model == "msm":
+        short = ("気象庁 メソモデル(MSM) GPV（京都大学生存圏研究所 RISH 配信）を加工して作図。気象庁の公式な図ではありません。"
+                 "本アプリはローカルで動かす調査用で、この図は公開サイトには含まれません。データの利用条件は配信元（RISH・気象庁）に従ってください。")
+        notice = [
+            "データ: 気象庁 メソモデル(MSM) GPV（日本域 0.125°×0.1°）。京都大学生存圏研究所 (RISH) のアーカイブ "
+            "http://database.rish.kyoto-u.ac.jp/arch/jmadata/ から取得。",
+            "改変: 元データの一部の変数を使い、本アプリが加工して図にしたもの。気象庁の公式な図ではありません。",
+            "このモデルの図はローカル（調査用）専用で、公開サイトには載せません。再配布・公開する場合は、配信元（RISH・気象庁）の利用条件を確認してください。",
+            "免責: 図の内容・利用による損害について作成者は責任を負いません。防災・安全に関わる判断には気象庁の公式情報を使ってください。",
+        ]
+        return dict(short=short, notice=notice, license_url="http://database.rish.kyoto-u.ac.jp/arch/jmadata/")
     if model == "gsm":
         short = ("気象庁 全球モデル(GSM) GPV（京都大学生存圏研究所 RISH 配信）を加工して作図。気象庁の公式な図ではありません。"
                  "本アプリはローカルで動かす調査用で、この図は公開サイトには含まれません。データの利用条件は配信元（RISH・気象庁）に従ってください。")
@@ -163,6 +176,8 @@ def max_step(model: str, init: datetime) -> int:
         return 360 if init.hour in (0, 12) else 90
     if model == "aifs":
         return 360                       # 00/06/12/18UTC とも6時間刻みで360hまで
+    if model == "msm":
+        return 78 if init.hour in (0, 12) else 39   # MSM: 00/12UTC は78h、他は39h
     return 384
 
 
@@ -195,6 +210,9 @@ def find_latest_complete(model: str, max_ft: int, interval: int, days_back: int 
     if model == "gsm":
         import gsm_source
         return gsm_source.find_latest_complete(max_ft, interval, days_back, hours)
+    if model == "msm":
+        import msm_source
+        return msm_source.find_latest_complete(max_ft, interval, days_back, hours)
     for init in candidate_inits(days_back):
         if hours and init.hour not in hours:
             continue

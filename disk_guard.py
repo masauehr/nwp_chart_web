@@ -8,7 +8,8 @@
   custom  output/custom/ の画像（自由選択で作ったもの。作り直せる）
           → 上限を超えたら、古いものから削除する
   gsm     data/gsm の GSM の取得データ（launchd が3日で自動削除。作図に必要なので上限は**警告だけ**）
-  output  output/ の作図済み画像（ecmwf・gfs・gsm。古い初期値は自動で整理される。警告だけ）
+  msm     data/msm の MSM の取得データ（gsm と同じく3日で自動削除。警告だけ）
+  output  output/ の作図済み画像（ecmwf・gfs・aifs・gsm・msm・jra55。古い初期値は自動で整理される。警告だけ）
   空き    ボリュームの空き容量（少なくなったら警告。さらに少ないと自由選択の取得を止める）
 
 通知は macOS の通知センター（osascript）。同じ内容は 24 時間に1回まで。
@@ -39,7 +40,8 @@ DEFAULTS = {
     "grib_gb": 3.0,        # data/ecmwf・data/gfs の GRIB2（自由選択の取得分）
     "custom_mb": 500.0,    # output/custom の画像
     "gsm_gb": 7.0,         # data/gsm（警告のみ。GSM は00/12/18UTCの3日分（9初期値）で約5.3GB。手動取得分の余裕込みで7GB。2026-11-24に6→7）
-    "output_gb": 4.0,      # output/ の作図済み画像（警告のみ。5モデルで約2GB）
+    "msm_gb": 6.0,         # data/msm（警告のみ。MSM は00/12/18UTCの3日分（9初期値）で約4.3GB（直前の1回分余分に残る）。手動取得分の余裕込みで6GB。2026-11-27追加）
+    "output_gb": 6.0,      # output/ の作図済み画像（警告のみ。MSM を足して約3.1GB。余裕込みで6GB。2026-11-27に4→6）
     "free_warn_gb": 20.0,  # ボリュームの空きがこれより少ないと警告
     "free_min_gb": 5.0,    # これより少ないと、自由選択の新しい取得を止める
 }
@@ -76,9 +78,10 @@ def groups():
                      limit=lim["grib_gb"] * GB, prune=True),
         "custom": dict(label="自由選択の画像", patterns=["output/custom/*.png"], limit=lim["custom_mb"] * MB, prune=True),
         "gsm": dict(label="GSM の取得データ", patterns=["data/gsm/*"], limit=lim["gsm_gb"] * GB, prune=False),
+        "msm": dict(label="MSM の取得データ", patterns=["data/msm/*"], limit=lim["msm_gb"] * GB, prune=False),
         "output": dict(label="作図済みの画像（全モデル）",
                        patterns=["output/ecmwf/**/*.png", "output/gfs/**/*.png", "output/aifs/**/*.png",
-                                 "output/gsm/**/*.png", "output/jra55/**/*.png"],
+                                 "output/gsm/**/*.png", "output/msm/**/*.png", "output/jra55/**/*.png"],
                        limit=lim["output_gb"] * GB, prune=False),
     }
 

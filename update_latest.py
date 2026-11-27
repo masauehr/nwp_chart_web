@@ -45,7 +45,7 @@ def parse_args():
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     p.add_argument("--models", nargs="+", default=nwp_data.auto_models(), choices=list(nwp_data.MODELS))   # JRA-55は自動更新の対象外
     p.add_argument("--max-ft", type=int, default=72)
-    p.add_argument("--interval", type=int, default=None, help="FT間隔[h]（既定: モデルごと。GSMは3、他は6）")
+    p.add_argument("--interval", type=int, default=None, help="FT間隔[h]（既定: モデルごと。GSM・MSMは3、他は6）")
     p.add_argument("--jobs", type=int, default=2, help="作図の並列数")
     p.add_argument("--dl-jobs", type=int, default=4, help="ダウンロードの並列数")
     p.add_argument("--days-back", type=int, default=3)
@@ -147,18 +147,20 @@ def prune_days(models, keep_days, data_dir, dry_run=False):
                             d.rmdir()
                         except OSError:
                             pass
-    if "gsm" in models:
-        gd = Path(data_dir) / "gsm"
-        files = [f for f in gd.glob("Z__C_RJTD_*_GSM_GPV_*.bin")] if gd.is_dir() else []
+    for gm, gtag in (("gsm", "GSM"), ("msm", "MSM")):
+        if gm not in models:
+            continue
+        gd = Path(data_dir) / gm
+        files = [f for f in gd.glob(f"Z__C_RJTD_*_{gtag}_GPV_*.bin")] if gd.is_dir() else []
         n = 0
         for f in files:
-            m = re.match(r"Z__C_RJTD_(\d{10})\d{4}_GSM_GPV_", f.name)  # 初期時刻 YYYYMMDDHH + 分秒
-            if m and old(m.group(1)) and not is_kept("gsm", m.group(1)):   # 手動取得(.keep)は残す
+            m = re.match(rf"Z__C_RJTD_(\d{{10}})\d{{4}}_{gtag}_GPV_", f.name)  # 初期時刻 YYYYMMDDHH + 分秒
+            if m and old(m.group(1)) and not is_kept(gm, m.group(1)):   # 手動取得(.keep)は残す
                 n += 1
                 if not dry_run:
                     f.unlink()
         if n:
-            log(f"gsm: 古い GRIB2 {n} ファイルを削除{' [dry-run]' if dry_run else ''}")
+            log(f"{gm}: 古い GRIB2 {n} ファイルを削除{' [dry-run]' if dry_run else ''}")
 
 
 def main():
@@ -177,23 +179,24 @@ def main():
                 log(f"{model}: FT{a.max_ft}hまで揃った初期値が見つかりません")
                 continue
             init_s = f"{init:%Y%m%d%H}"
-            if not a.force and is_built(model, init_s, a.max_ft, iv):
+            mf = min(a.max_ft, nwp_data.max_step(model, init)) if model == "msm" else a.max_ft  # MSMの18UTC等は39hまで
+            if not a.force and is_built(model, init_s, mf, iv):
                 log(f"{model}: {init_s} は作成済み")
                 continue
             log(f"{model}: {init_s} を取得・作図します{' [dry-run]' if a.dry_run else ''}")
-            todo.append((model, init_s, iv))
+            todo.append((model, init_s, iv, mf))
         if todo and not a.dry_run:
-            def cmd_for(model, init_s, iv):
+            def cmd_for(model, init_s, iv, mf):
                 return [sys.executable, "-u", str(ROOT / "make_charts.py"), model, init_s,
-                        "--max-ft", str(a.max_ft), "--interval", str(iv), "--jobs", str(a.jobs),
+                        "--max-ft", str(mf), "--interval", str(iv), "--jobs", str(a.jobs),
                         "--dl-jobs", str(a.dl_jobs), "--data-dir", a.data_dir]
             if a.sequential:
                 procs = []
-                for model, init_s, iv in todo:
-                    r = subprocess.run(cmd_for(model, init_s, iv), cwd=ROOT)
+                for model, init_s, iv, mf in todo:
+                    r = subprocess.run(cmd_for(model, init_s, iv, mf), cwd=ROOT)
                     procs.append((model, r.returncode))
             else:
-                running = [(m, subprocess.Popen(cmd_for(m, i, v), cwd=ROOT)) for m, i, v in todo]  # モデルごとに別プロセスで並行
+                running = [(m, subprocess.Popen(cmd_for(m, i, v, f), cwd=ROOT)) for m, i, v, f in todo]  # モデルごとに別プロセスで並行
                 procs = [(m, pr.wait()) for m, pr in running]
             for model, rc in procs:
                 log(f"{model}: make_charts 終了コード {rc}")

@@ -5,7 +5,7 @@
 gsm_chart_web の gsm_charts.py をコピーして多モデル用に調整したもの（共通部品化しない方針）。
 図種: surf / tenki / z500 / jet300 / t500 / t850 / t700 / t925 / flux950 / ept850（flux950はGFS・GSM日本域・JRA-55のみ）
 地域: japan（日本周辺・ランベルト） / okinawa（沖縄周辺・正距円筒） / asia（東アジア広域）
-  GSMだけ japan3 / okinawa3（日本域0.125°・3時間毎。src="rjp"）
+  GSM・MSM だけ japan3 / okinawa3（日本域0.125°・3時間毎。src="rjp"。MSMのデータ範囲は 120-150E, 22.4-47.6N）
 """
 import os
 import sys
@@ -62,18 +62,19 @@ JAPAN_ZONES = ("hokkaido", "tohoku", "kanto", "chubu", "kinki", "chugoku_shikoku
 REGIONS = {
     "japan": dict(label="日本周辺", kind="lcc", center=(133.0, 36.0), width_km=4400,
                   bbox=(95, 180, 5, 68), barb_n=20, coast="10m", zoom=2,
+                  exclude=("msm",),   # MSMは日本域のみ（japan3/okinawa3）
                   label_zones=JAPAN_ZONES),
     "okinawa": dict(label="沖縄周辺", kind="pc", center=(128.0, 27.0), width_deg=24.0,
-                    bbox=(105, 152, 8, 46), barb_n=16, coast="10m", zoom=3, exclude=("jra55",),
+                    bbox=(105, 152, 8, 46), barb_n=16, coast="10m", zoom=3, exclude=("jra55", "msm"),
                     label_zones=("east_china_sea",)),   # JRA-55は1.25°と粗いので作らない
     "asia": dict(label="東アジア広域", kind="lcc", center=(115.0, 33.0), width_km=8600,
-                 bbox=(55, 180, -8, 80), barb_n=24, coast="50m", zoom=1),
+                 bbox=(55, 180, -8, 80), barb_n=24, coast="50m", zoom=1, exclude=("msm",)),
     # GSM 日本域 0.125°（Rjp, 3時間毎）。データ範囲は 120-150E, 20-50N。**GSM（ローカル専用）だけ**が持つ地域
     "japan3": dict(label="日本域（0.125°・3時間毎）", kind="lcc", center=(134.0, 34.0), width_km=3100,
-                   bbox=(120, 150, 20, 50), barb_n=20, coast="10m", zoom=1, src="rjp", models=("gsm",),
+                   bbox=(120, 150, 20, 50), barb_n=20, coast="10m", zoom=1, src="rjp", models=("gsm", "msm"),
                    label_zones=JAPAN_ZONES),
     "okinawa3": dict(label="南西域（0.125°・3時間毎）", kind="pc", center=(133.0, 30.0), width_deg=26.0,
-                     bbox=(120, 150, 20, 50), barb_n=16, coast="10m", zoom=1, src="rjp", models=("gsm",),
+                     bbox=(120, 150, 20, 50), barb_n=16, coast="10m", zoom=1, src="rjp", models=("gsm", "msm"),
                      label_zones=("east_china_sea",)),
 }
 

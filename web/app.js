@@ -644,7 +644,7 @@
 
   // ---------- 過去の初期値（GSM・JRA-55）の取得・一覧・削除。サーバーの /api/past/* を呼ぶ（ローカルサーバーのときだけ）
   const pastRows = $("pastTbl").tBodies[0];
-  const pastModel = () => $("pastModel").value;                      // "gsm" | "jra55"
+  const pastModel = () => $("pastModel").value;                      // "gsm" | "msm" | "jra55"
   const pastBtn = (text, onclick) => { const b = document.createElement("button"); b.textContent = text; b.onclick = onclick; return b; };
   const fmtGb = (mb) => (mb >= 1000 ? (mb / 1000).toFixed(2) + "GB" : Math.round(mb * 10) / 10 + "MB");
   let pastData = null;                                                // 直近の /api/past/list の結果
@@ -677,7 +677,7 @@
     // 行を共通の形にそろえる: {init, data(表示), has(データがあるか), png_count, png_mb, manual}
     const rows = jra
       ? j.jra55.map((r) => ({ init: r.init, frames: r.frames, has: r.has_data, data: `${fmtGb(r.data_mb)}`, png_count: r.png_count, png_mb: r.png_mb, manual: true }))
-      : j.inits.map((r) => ({ init: r.init, has: r.grib_files > 0, data: `${r.grib_files}個 ${fmtGb(r.grib_mb)}`, png_count: r.png_count, png_mb: r.png_mb, manual: r.manual }));
+      : (pastModel() === "msm" ? j.msm_inits : j.inits).map((r) => ({ init: r.init, has: r.grib_files > 0, data: `${r.grib_files}個 ${fmtGb(r.grib_mb)}`, png_count: r.png_count, png_mb: r.png_mb, manual: r.manual }));
     $("pastHead").textContent = jra ? "データ" : "GRIB2";
     $("pastInitHead").textContent = jra ? "開始時刻（UTC）" : "初期値（UTC）";
     $("pastHeadMan").textContent = jra ? "" : "手動";
@@ -692,7 +692,7 @@
       if (r.has) c.appendChild(deleteBtn(jra ? "データ削除" : "GRIB2削除", r.init, false));
       c.appendChild(deleteBtn("すべて削除", r.init, true));
     }
-    const gsmG = j.inits.reduce((a, r) => a + r.grib_mb, 0);
+    const gsmG = (pastModel() === "msm" ? j.msm_inits : j.inits).reduce((a, r) => a + r.grib_mb, 0);
     const p = rows.reduce((a, r) => a + r.png_mb, 0);
     $("pastTotal").textContent = jra
       ? `合計: データ ${fmtGb(j.jra55.reduce((a, r) => a + r.data_mb, 0))}、画像 ${fmtGb(p)}。JRA-55は自動では削除されません。「すべて削除」は画像も消します。`
@@ -704,7 +704,11 @@
   function applyPastModel() {
     const jra = pastModel() === "jra55";
     $("pastFtBox").hidden = jra; $("pastDaysBox").hidden = !jra;
-    $("pastNoteGsm").hidden = jra; $("pastNoteJra").hidden = !jra;
+    const msm = pastModel() === "msm";
+    $("pastNoteGsm").hidden = jra || msm; $("pastNoteMsm").hidden = !msm; $("pastNoteJra").hidden = !jra;
+    setPastFt();                                                      // 予報時間の選択肢と時刻の選択肢をモデルに合わせる
+    for (const o of $("pastHour").options) o.hidden = o.disabled = !msm && +o.value % 6 !== 0;   // GSMは6時間毎、MSMは3時間毎
+    if ($("pastHour").selectedOptions[0] && $("pastHour").selectedOptions[0].hidden) $("pastHour").value = "00";
     $("pastDate").min = jra ? "1958-01-01" : ""; $("pastDate").max = jra ? "2023-12-31" : new Date().toISOString().slice(0, 10);
     const v = $("pastDate").value;
     if (jra && !(v >= "1958-01-01" && v <= "2023-12-31")) $("pastDate").value = "1959-09-26";          // 例: 伊勢湾台風の頃
@@ -712,14 +716,24 @@
     renderPast();
   }
 
+  // 予報時間の選択肢（GSM: 24/48/72、MSM: 24/48/78）
+  function setPastFt() {
+    const j = pastData; if (!j) return;
+    const msm = pastModel() === "msm", sel = $("pastFt");
+    const vals = msm ? j.msm_ft_choices : j.ft_choices, def = msm ? 78 : 72;
+    if (sel.dataset.model === (msm ? "msm" : "gsm") && sel.options.length) return;
+    sel.innerHTML = "";
+    for (const f of vals) sel.add(new Option(`${f}時間`, f, false, f === def));
+    sel.dataset.model = msm ? "msm" : "gsm";
+  }
+
   async function loadPast() {
     let j;
     try { j = await (await fetch(API + "past/list", { cache: "no-store" })).json(); } catch (e) { $("pastMsg").textContent = "一覧を取得できません"; return; }
     pastData = j;
-    for (const [id, vals, def] of [["pastFt", j.ft_choices, 72], ["pastDays", j.days_choices, 1]]) {
-      const sel = $(id);
-      if (!sel.options.length) for (const f of vals) sel.add(new Option(id === "pastFt" ? `${f}時間` : `${f}日`, f, false, f === def));
-    }
+    setPastFt();
+    const dsel = $("pastDays");
+    if (!dsel.options.length) for (const f of j.days_choices) dsel.add(new Option(`${f}日`, f, false, f === 1));
     renderPast();
   }
 

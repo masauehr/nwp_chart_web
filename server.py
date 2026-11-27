@@ -13,7 +13,7 @@
   GET  /api/custom/list → 自由選択で作った画像の「最近の作図」（直近10件・新しい順。画像ファイルから作る）
   POST /api/custom/publish・unpublish → 自由選択で作った画像を公開サイトに載せる／外す（publish.py --custom。ローカルのみ）
   GET  /api/disk    → ローカルのディスク使用量と上限（disk_guard.py。ローカルからのみ）
-  GET  /api/past/list     → GSM・JRA-55（ローカル専用）の初期値（有効時刻）ごとのデータ・画像の数と容量
+  GET  /api/past/list     → GSM・MSM・JRA-55（ローカル専用）の初期値（有効時刻）ごとのデータ・画像の数と容量
   POST /api/past/fetch    → 過去の初期値を取得して作図（本文 {"model":"gsm","init":"YYYYMMDDHH","max_ft":72}
                             または {"model":"jra55","init":"YYYYMMDDHH","days":1}。past_gsm.py / past_jra55.py を裏で実行）
   POST /api/past/delete   → 削除（本文 {"model":"gsm|jra55","init":"YYYYMMDDHH","png":false}。データだけ／png=trueで画像も）
@@ -38,6 +38,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 import past_gsm  # noqa: E402  標準ライブラリのみ（GSM過去分の一覧・削除。取得はジョブとして別プロセスで実行）
 import past_jra55  # noqa: E402  同（JRA-55版）
+import past_msm  # noqa: E402  同（MSM版）
 import custom  # noqa: E402  任意の断面線・地点の作図（ローカル専用）
 import disk_guard  # noqa: E402  ディスク使用量の制限・通知
 LOG_FILE = ROOT / "logs" / "update_ui.log"
@@ -115,6 +116,7 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/past/list":
             if self._local_only():
                 self._json(200, {"inits": past_gsm.list_inits(), "ft_choices": list(past_gsm.FT_CHOICES),
+                                 "msm_inits": past_msm.list_inits(), "msm_ft_choices": list(past_msm.FT_CHOICES),
                                  "jra55": past_jra55.list_rows(), "days_choices": list(past_jra55.DAYS_CHOICES), **job_status()})
             return
         if path == "/api/custom":
@@ -163,6 +165,21 @@ class Handler(SimpleHTTPRequestHandler):
         b = self._body()
         try:
             jra = b.get("model", "gsm") == "jra55"
+            if b.get("model") == "msm":
+                if path == "/api/past/fetch":
+                    init = past_msm.parse_init(b.get("init", ""))
+                    ft = int(b.get("max_ft", 78))
+                    if ft not in past_msm.FT_CHOICES:
+                        raise ValueError("予報時間が不正です")
+                    started = start_update("past_msm.py", ("fetch", init, "--max-ft", str(ft)))
+                    self._json(200, {"started": started, **job_status()})
+                else:
+                    init = past_msm.valid_init_name(b.get("init", ""))
+                    if job_status()["running"]:
+                        self._json(409, {"error": "取得・更新の実行中は削除できません"})
+                        return
+                    self._json(200, {"deleted": past_msm.delete(init, with_png=bool(b.get("png")))})
+                return
             if jra and path == "/api/past/fetch":
                 init = past_jra55.jra55_source.parse_valid(b.get("init", ""))
                 days = int(b.get("days", 1))

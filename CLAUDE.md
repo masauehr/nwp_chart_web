@@ -37,6 +37,12 @@ ECMWF（IFS・AIFS）オープンデータ・NOAA GFS（0.25°）・**気象庁G
 - `gsm_source.py` は `gsm_chart_web/gsm_data.py` のコピー（共通部品化しない）。
 - **GSMの過去の初期値**は画面の「過去分取得」ボタン（`past_gsm.py`・`/api/past/*`）で手動取得。取得分は `output/gsm/<初期値>/.keep` の目印で自動削除（`--keep-days`/`--keep`）から除外される。GRIB2・画像は画面の一覧から手動で削除する（2回押し）。APIは `_local_only`・同一Originのみ・`no-cache`（外さない）。
 
+## MSM（ローカル専用モデル・2026-11-27）
+- `nwp_data.MODELS["msm"]`（`local_only`）。**公開しない**（GSM と同じ除外が `local_only` で効く。外さない）。`msm_source.py` は `gsm_source.py` のコピー調整、`past_msm.py` は `past_gsm.py` のコピー調整（共通部品化しない）。
+- 地域は `japan3`/`okinawa3` のみ（`japan`/`okinawa`/`asia` は `exclude=("msm",)`）。FT間隔3h。00/12Zは78h・他は39h（`nwp_data.max_step`。`update_latest`・`msm_source.find_latest_complete` は初期値ごとに上限を丸める）。
+- **等圧面（0.25°×0.2°・253×241）と地上（0.125°×0.1°・505×481）の格子が違う** → `msm_source._finish` で等圧面を線形補間で地上にそろえる（外さない）。降水は直前1時間窓（startStep=ft-1）。
+- launchd は雛形 `launchd/com.masahiro.nwp_chart_web_msm.plist`（登録はユーザー）。`disk_guard` の `msm_gb`・`output_gb`（6GB）。断面図・エマグラムは MSM 非対応。
+
 ## JRA-55（ローカル専用・再解析）
 - `nwp_data.MODELS["jra55"]`（`local_only`・`auto=False`）。公開しない（`publish.py`・`sync_public.py`・`build_site.py` の除外は GSM と同じ仕組み）。**自動更新（`update_latest.py`）の対象外**（`nwp_data.auto_models()`）。
 - **系列**: 開始時刻から N 日分（6時間毎）を1つの系列にし、「初期値」＝開始時刻・FT＝開始からの経過時間[h]（FT=0,6,12,…。予報モデルと同じ形なので画面のスライダー・再生で動かせる・2モデル比較は解析時刻で合う）。manifest の `analysis:true` で画面の文言を「解析 開始／解析時刻」に変える。取得は `jra55_source.py`（RISHの月ファイルを `#mode=bytes` で必要な時刻・気圧面だけ範囲読み込み→`data/jra55/<開始時刻>/YYYYMMDDHH.npz`。旧形式のフラットなキャッシュは `migrate_flat()` が移す）。**認証は不要**（2026-11-10確認）。取得・一覧・削除は画面の「過去分取得」（モデル=JRA-55）と `past_jra55.py`。

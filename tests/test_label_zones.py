@@ -59,7 +59,7 @@ def test_region_config_swaps_okinawa():
     assert nwp_charts.apply_region_config(cfg, regs, zones) == ["okinawa"]
     assert regs["okinawa"]["label"] == "九州周辺" and regs["okinawa"]["center"] == (131.0, 33.0)
     assert regs["okinawa"]["label_zones"] == ("z",) and zones["z"] == (128.0, 134.0, 30.0, 35.0)
-    assert regs["okinawa"]["exclude"] == ("jra55",)   # 書かなかった項目は元のまま
+    assert regs["okinawa"]["exclude"] == ("jra55", "msm")   # 書かなかった項目は元のまま
 
 
 def test_region_config_rejects_bad_input():
